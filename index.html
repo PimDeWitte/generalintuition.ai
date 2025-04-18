@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>General Intuition - Research Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- Base Styles --- */
+        body {
+            margin: 0;
+            overflow: hidden;
+            /* Darker background */
+            background-color: #050510;
+            font-family: 'Inter', sans-serif;
+            color: #eee;
+        }
+        canvas { display: block; }
+        #info-box, #instructions {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.8);
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-size: 13px;
+            z-index: 10;
+            line-height: 1.6;
+        }
+        #info-box {
+            top: 20px;
+            left: 20px;
+            border: 1px solid #0f0;
+            color: #0f0;
+            max-width: 320px;
+            display: none;
+            pointer-events: none;
+            text-shadow: 0 0 3px #0f0;
+        }
+        #info-box h3 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            font-size: 15px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        #info-box h3.paper-title { color: #0ff; text-shadow: 0 0 3px #0ff; }
+        #info-box h3.team-title { color: #ffd700; text-shadow: 0 0 3px #ffd700; }
+
+        #instructions {
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #aaa;
+            font-size: 11px;
+            padding: 6px 12px;
+            text-align: center;
+        }
+        #instructions a {
+            color: #0ff;
+            text-decoration: none;
+            display: block;
+            margin-top: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        #instructions a:hover { text-decoration: underline; }
+
+        /* --- Overlay Styles --- */
+        #animation-overlay, #disclaimer-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; justify-content: center; align-items: center;
+            z-index: 100; padding: 20px; box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+        #animation-overlay { background-color: rgba(0, 0, 0, 0.9); flex-direction: column; }
+        #disclaimer-overlay { background-color: rgba(10, 10, 20, 0.95); overflow-y: auto; }
+
+        #overlay-node-label { color: #bbb; font-size: 16px; margin-bottom: 20px; text-align: center; font-weight: 700; }
+        #overlay-content { display: flex; align-items: center; justify-content: space-around; width: 90%; max-width: 700px; height: 80px; margin-bottom: 25px; position: relative; border-bottom: 1px dashed rgba(0, 255, 255, 0.3); padding-bottom: 20px; }
+        .network-layer { width: 8px; height: 100%; background: linear-gradient(to bottom, rgba(0, 100, 100, 0.3), rgba(0, 200, 200, 0.6), rgba(0, 100, 100, 0.3)); border-radius: 4px; box-shadow: 0 0 6px rgba(0, 255, 255, 0.4); opacity: 0; animation: fadeInLayer 0.3s forwards; transition: box-shadow 0.1s linear, background 0.1s linear; position: relative; overflow: hidden; }
+        .network-layer::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: repeating-linear-gradient( 45deg, rgba(255,255,255,0.0), rgba(255,255,255,0.0) 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px ); opacity: 0; transition: opacity 0.1s linear; }
+        .network-layer:nth-child(1) { animation-delay: 0.02s; } .network-layer:nth-child(2) { animation-delay: 0.04s; } .network-layer:nth-child(3) { animation-delay: 0.06s; } .network-layer:nth-child(4) { animation-delay: 0.08s; } .network-layer:nth-child(5) { animation-delay: 0.1s; }
+        .network-layer.active { box-shadow: 0 0 15px #0f0; background: linear-gradient(to bottom, rgba(0, 255, 0, 0.3), rgba(100, 255, 100, 1), rgba(0, 255, 0, 0.3)); }
+        .network-layer.active::before { opacity: 0.5; }
+        #signal-wave { position: absolute; left: -30px; top: 50%; height: 20px; transform: translateY(-50%); opacity: 0; }
+        .signal-dot-item { position: absolute; width: 5px; height: 5px; background-color: #0f0; border-radius: 50%; box-shadow: 0 0 5px #0f0; }
+        #word-selection-vis { position: absolute; bottom: -15px; left: 50%; transform: translateX(-50%); width: auto; min-width: 120px; padding: 4px; background-color: rgba(0, 0, 0, 0.7); border: 1px solid #444; border-radius: 4px; text-align: center; opacity: 0; transition: opacity 0.1s ease-out; pointer-events: none; display: flex; justify-content: center; align-items: center; gap: 6px; }
+        #word-selection-vis.visible { opacity: 1; }
+        .prob-word { font-size: 11px; padding: 2px 5px; border-radius: 3px; }
+        .prob-word.selected { color: #0f0; border: 1px solid #0f0; background-color: rgba(0, 255, 0, 0.2); font-weight: 700; }
+        .prob-word.alternative { color: #888; border: 1px solid #444; background-color: rgba(80, 80, 80, 0.2); opacity: 0.7; }
+        #overlay-output-container { width: 90%; max-width: 700px; min-height: 60px; text-align: left; border: 1px dashed #0ff; padding: 12px; border-radius: 5px; background-color: rgba(0, 50, 50, 0.3); margin-top: 15px; }
+        #overlay-output { font-size: 15px; color: #0f0; text-shadow: 0 0 5px #0f0; line-height: 1.7; }
+        #overlay-output .current-word { background-color: rgba(0, 255, 0, 0.3); padding: 0 2px; border-radius: 2px; animation: fadeHighlight 0.5s forwards; }
+        #overlay-explanation { color: #0ff; font-size: 12px; margin-top: 20px; max-width: 600px; text-align: center; line-height: 1.6; text-decoration: underline; }
+        #overlay-explanation a { color: #0ff; text-decoration: none;}
+        #overlay-explanation a:hover { color: #3ff; }
+
+        .close-overlay-btn {
+            position: absolute; top: 15px; right: 15px; background-color: #dd0000; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer;
+            font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700;
+            box-shadow: 0 0 8px #ff0000; transition: background-color 0.2s;
+        }
+        .close-overlay-btn:hover { background-color: #aa0000; }
+
+        /* --- Disclaimer Overlay Styles --- */
+        #disclaimer-content { background-color: rgba(0, 0, 0, 0.6); border: 1px solid #0ff; border-radius: 8px; padding: 25px 35px; max-width: 850px; width: 90%; color: #ccc; font-size: 14px; line-height: 1.8; font-family: 'Inter', sans-serif; }
+        #disclaimer-content h2 {
+             font-family: 'Press Start 2P', cursive;
+            color: #0ff; font-size: 20px; margin-bottom: 25px; text-align: center; text-shadow: 0 0 5px #0ff; letter-spacing: 1px;
+        }
+        #disclaimer-content h3 {
+            font-family: 'Press Start 2P', cursive;
+            color: #eee; font-size: 15px; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px dashed #555; padding-bottom: 8px; letter-spacing: 0.5px;
+        }
+        #disclaimer-content p, #disclaimer-content li { margin-bottom: 12px; }
+        #disclaimer-content strong { color: #fff; font-weight: 700; }
+        #disclaimer-content ul { list-style: none; padding-left: 0; margin-left: 0; }
+        #team-list li { margin-bottom: 8px; }
+        #team-list li a {
+            color: #ffd700;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        #team-list li a:hover { text-decoration: underline; color: #fff; }
+
+        #lab-links ul { list-style: none; padding: 0; margin: 20px 0 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 18px; }
+        #lab-links li a {
+            color: #0ff; text-decoration: none; background-color: rgba(0, 255, 255, 0.1); border: 1px solid rgba(0, 255, 255, 0.3); padding: 6px 12px; border-radius: 4px; transition: background-color 0.2s, color 0.2s;
+            font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.3px;
+        }
+        #lab-links li a:hover { background-color: rgba(0, 255, 255, 0.3); color: #fff; }
+
+        /* --- Animations --- */
+        @keyframes fadeInLayer { from { opacity: 0; transform: scaleY(0.5); } to { opacity: 1; transform: scaleY(1); } }
+        @keyframes nodeClickFlash { 0%, 100% { transform: scale(1.0); } 50% { transform: scale(1.5); } }
+        @keyframes fadeHighlight { from { background-color: rgba(0, 255, 0, 0.3); } to { background-color: transparent; } }
+    </style>
+</head>
+<body class="font-sans"> <div id="main-visualization">
+        <div id="info-box"><h3 id="info-label">...</h3><p id="info-description">...</p></div>
+        <div id="instructions">
+            Click & Drag: Rotate | Scroll: Zoom | Hover: Inspect
+            <a id="show-disclaimer-link" href="#">About / Info</a>
+            </div>
+        <canvas id="representation-canvas"></canvas>
+    </div>
+
+    <div id="animation-overlay">
+         <div id="overlay-node-label">Exploring Concept: ...</div>
+        <div id="overlay-content">
+            <div class="network-layer"></div> <div class="network-layer"></div> <div class="network-layer"></div> <div class="network-layer"></div> <div class="network-layer"></div>
+            <div id="signal-wave"></div>
+             <div id="word-selection-vis"></div>
+        </div>
+        <div id="overlay-output-container">
+            <p id="overlay-output"></p>
+        </div>
+         <div id="overlay-explanation">
+             <a href="mailto:careers@generalintuition.ai">careers@generalintuition.ai</a>
+         </div>
+        <button id="close-animation-overlay-btn" class="close-overlay-btn">X</button>
+    </div>
+
+    <div id="disclaimer-overlay">
+         <div id="disclaimer-content">
+            <h2>Welcome to General Intuition</h2>
+            <p>This interactive visualization serves as a conceptual map of the research areas explored at <strong>General Intuition</strong>. We focus on the intersection of <strong>embodied agents, robotics, artificial intelligence, and cognitive science</strong>.</p>
+            <p>The nodes represent key concepts (colored spheres), specific research papers (cyan spheres), and team members (gold spheres). Hover over them to learn more. Click a concept node for an animation, or click a paper/team node to open the corresponding link.</p>
+            <p>Use this visualization as a starting point to understand the themes driving our research. For more detailed information, please explore the links below:</p>
+
+            <h3>Team</h3>
+            <ul id="team-list">
+                </ul>
+
+            <h3>Explore General Intuition</h3>
+            <div id="lab-links">
+                <ul>
+                    <li><a href="#about">About Us</a></li>
+                    <li><a href="#research">Research Areas</a></li>
+                    <li><a href="#publications">Publications</a></li>
+                    <li><a href="#team">Team</a></li>
+                    <li><a href="#jobs">Jobs / Opportunities</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                 </ul>
+            </div>
+        </div>
+        <button id="close-disclaimer-overlay-btn" class="close-overlay-btn">X</button>
+    </div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/" } }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- Configuration ---
+        const conceptNodeSize = 0.6;
+        const paperNodeSize = 0.45;
+        const teamNodeSize = 0.5;
+        const paperNodeColor = 0x00ffff; // Cyan
+        const teamNodeColor = 0xffd700; // Gold
+        const highlightColor = 0x00ff00;
+        const clickHighlightColor = 0xffffff;
+        const numNetworkLayers = 5;
+        const clickEffectDuration = 500;
+        const transitionDelay = 300;
+        const conceptNodeSpread = 10;
+        const paperNodeSpread = 6;
+        const teamNodeSpread = 5;
+        // Node Movement Params
+        const nodeMoveAmplitude = 0.3; // Max distance node moves from spawn point
+        const nodeMoveFreq = 0.4;    // Speed of node movement oscillation
+        const nodeLerpFactor = 0.02; // Smoothness of movement (lower = smoother)
+
+        // Animation Params
+        const baseAnimFreq = 0.8;
+        const baseAnimAmpConcept = 0.03;
+        const baseAnimAmpPaperTeam = 0.05;
+        const distanceScaleFactor = 15.0;
+        const maxDistanceScaleBonus = 0.4;
+
+        // Faster Animation Timings
+        const layerPassDuration = 240;
+        const wordSelectionDuration = 90;
+        const wordAppendDelay = 20;
+        const numSignalDots = 5;
+
+        // --- NEW Space-Themed Color Palette for Concepts ---
+        const conceptColorPalette = [
+            0x4a90e2, // Blue
+            0xbd10e0, // Purple
+            0xffffff, // White
+            0x7ed321, // Green (Nebula?)
+            0xf5a623, // Orange (Star?)
+            0x50e3c2, // Teal
+            0xe04457, // Reddish Pink
+        ];
+        let conceptColorIndex = 0; // To cycle through the palette
+
+        // --- Helper Functions ---
+        function randomPosition(baseX, baseY, baseZ, spread) {
+            return new THREE.Vector3(
+                baseX + (Math.random() * spread - spread / 2),
+                baseY + (Math.random() * spread - spread / 2),
+                baseZ + (Math.random() * spread - spread / 2)
+            );
+        }
+        const genericAlternatives = ["concept", "process", "state"];
+        const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+        // --- Node Data ---
+        const conceptNodesData = [];
+        const paperNodesData = [];
+        const teamNodesData = [];
+
+        const categories = {
+            // Existing categories...
+             "Perception": { labels: ["Sensor Fusion", "Proprioception", "Visual Odometry", "SLAM", "Object Recognition", "Depth Sensing", "Tactile Sensing", "Auditory Scene"], base: [25, 25, 0], infoPrefix: "Sensing:", sentencePrefix: "Making sense of the world through" },
+            "Action/Control": { labels: ["Reinforcement Learning", "Inverse Kinematics", "PID Control", "Motion Planning", "Grasping", "Locomotion", "Trajectory Optimization", "Imitation Learning"], base: [-25, 25, 0], infoPrefix: "Acting:", sentencePrefix: "Generating physical behavior using" },
+            "Cognition/Planning": { labels: ["Task Planning", "World Model", "Predictive Coding", "Affordance Theory", "Symbolic Reasoning", "Goal Setting", "Decision Making", "Memory Systems"], base: [25, -25, 0], infoPrefix: "Thinking:", sentencePrefix: "Formulating plans for interaction involves" },
+            "Embodiment": { labels: ["Morphology", "Physical Interaction", "Degrees of Freedom", "Actuators", "Simulation Gap", "Embodied Cognition", "Soft Robotics", "Bio-inspiration"], base: [-25, -25, 0], infoPrefix: "Form:", sentencePrefix: "The physical form, defined by" },
+            "Core AI/ML": { labels: ["Neural Network", "Transformer", "Attention Mechanism", "Backpropagation", "Gradient Descent", "Latent Space", "CNN", "RNN", "GAN"], base: [0, 0, 25], infoPrefix: "Algorithms:", sentencePrefix: "Extracting patterns from interaction data via" },
+            "Learning Paradigms": { labels: ["Supervised", "Unsupervised", "Self-Supervised", "Continual Learning", "Meta-Learning", "Transfer Learning", "Active Learning", "Online Learning"], base: [0, 0, -25], infoPrefix: "Adaptation:", sentencePrefix: "Improving interactive capabilities through" },
+            "Human-Robot Interaction": { labels: ["Social Robotics", "Trust in Automation", "Shared Autonomy", "Teleoperation", "Gesture Recognition", "Natural Language Interface", "Explainable AI (XAI)"], base: [0, 25, 25], infoPrefix: "Collaboration:", sentencePrefix: "Facilitating coordination relies on" },
+            "Robotic Manipulation": { labels: ["Dexterous Manipulation", "Force Control", "Assembly Tasks", "In-Hand Manipulation", "Regrasping", "Compliant Control", "Peg-in-Hole"], base: [0, -25, 25], infoPrefix: "Handling:", sentencePrefix: "Physically engaging with objects requires" },
+            "Navigation & Mapping": { labels: ["Path Planning", "Global Localization", "Topological Maps", "Grid Maps", "Exploration Algorithms", "Multi-Agent Path Finding", "Semantic Mapping"], base: [25, 0, 25], infoPrefix: "Movement:", sentencePrefix: "Moving effectively through environments depends on" },
+            "Computer Vision": { labels: ["Image Segmentation", "Pose Estimation", "Scene Understanding", "3D Reconstruction", "Optical Flow", "Feature Detection", "Video Analysis"], base: [-25, 0, 25], infoPrefix: "Seeing:", sentencePrefix: "Interpreting visual input for action using" },
+            "Natural Language Processing": { labels: ["Language Models (LLMs)", "Sentiment Analysis", "Machine Translation", "Question Answering", "Text Summarization", "Named Entity Recognition", "Embeddings"], base: [25, 25, -25], infoPrefix: "Language:", sentencePrefix: "Grounding communication often involves" },
+            "Knowledge Representation": { labels: ["Ontologies", "Knowledge Graphs", "Logical Inference", "Semantic Web", "Rule-Based Systems", "Description Logics", "Common Sense Reasoning"], base: [-25, 25, -25], infoPrefix: "Knowledge:", sentencePrefix: "Structuring world knowledge uses" },
+            "Optimization Methods": { labels: ["Gradient-Based Opt.", "Evolutionary Algorithms", "Bayesian Optimization", "Convex Optimization", "Integer Programming", "Search Algorithms (A*, BFS)"], base: [25, -25, -25], infoPrefix: "Optimizing:", sentencePrefix: "Finding effective action sequences involves" },
+            "Simulation & Modeling": { labels: ["Physics Engines", "Digital Twins", "System Identification", "Agent-Based Modeling", "Finite Element Analysis", "Sim-to-Real Transfer"], base: [-25, -25, -25], infoPrefix: "Modeling:", sentencePrefix: "Anticipating physical consequences uses" },
+            "Cognitive Architectures": { labels: ["SOAR", "ACT-R", "Connectionism", "Symbolic Systems", "Hybrid Architectures", "Developmental Robotics", "Modular Architectures"], base: [0, 25, -25], infoPrefix: "Mind Models:", sentencePrefix: "Integrating capabilities relies on" },
+            "Neuroscience Inspiration": { labels: ["Spiking Neural Nets", "Hebbian Learning", "Hippocampal Models", "Cortical Columns", "Neural Plasticity", "Motor Cortex Models"], base: [0, -25, -25], infoPrefix: "Brain-Inspired:", sentencePrefix: "Biological mechanisms like" },
+            "Philosophy of Mind": { labels: ["Consciousness", "Qualia", "Intentionality", "Free Will", "Mind-Body Problem", "Embodied Mind Thesis", "Extended Mind"], base: [25, 0, -25], infoPrefix: "Mind Concepts:", sentencePrefix: "Fundamental questions about agency involve" },
+            "Ethics & Safety": { labels: ["AI Alignment", "Value Learning", "Bias Detection", "Fairness Metrics", "Robustness", "Interpretability", "Accountability"], base: [-25, 0, -25], infoPrefix: "Safety:", sentencePrefix: "Ensuring reliable real-world behavior needs" },
+            "Multi-Agent Systems": { labels: ["Coordination", "Cooperation", "Competition", "Swarm Intelligence", "Distributed Control", "Negotiation"], base: [15, 15, 15], infoPrefix: "Groups:", sentencePrefix: "Coordinating multiple actors requires" },
+            "Probabilistic Methods": { labels: ["Bayesian Networks", "Kalman Filters", "Particle Filters", "Gaussian Processes", "Markov Models (HMMs)", "Probabilistic Programming"], base: [-15, 15, 15], infoPrefix: "Uncertainty:", sentencePrefix: "Handling noisy sensor data involves" },
+            "Geometric Methods": { labels: ["Lie Groups (SE3)", "Manifold Learning", "Computational Geometry", "Topology", "Differential Geometry", "Configuration Space"], base: [15, -15, 15], infoPrefix: "Geometry:", sentencePrefix: "Reasoning about spatial relationships uses" },
+            "Information Theory": { labels: ["Entropy", "Mutual Information", "KL Divergence", "Compression", "Channel Capacity", "Coding Theory"], base: [-15, -15, 15], infoPrefix: "Information:", sentencePrefix: "Quantifying the flow of sensory data uses" },
+            "Control Theory": { labels: ["Linear Control", "Nonlinear Control", "Adaptive Control", "Optimal Control", "Robust Control", "Stochastic Control"], base: [15, 15, -15], infoPrefix: "Dynamics:", sentencePrefix: "Achieving stable physical motion requires" },
+            "Hardware & Sensors": { labels: ["LIDAR", "IMU", "Cameras", "Force Sensors", "Encoders", "Microcontrollers", "FPGAs", "GPUs"], base: [-15, 15, -15], infoPrefix: "Hardware:", sentencePrefix: "The physical interface includes components like" },
+            "Data Structures & Algo": { labels: ["Graphs", "Trees", "Hash Tables", "Sorting", "Dynamic Programming", "Complexity Theory"], base: [15, -15, -15], infoPrefix: "Computation:", sentencePrefix: "Efficient processing of world state uses" },
+            "Quantum Computing": { labels: ["Qubits", "Superposition", "Entanglement", "Quantum Gates", "Quantum Algorithms", "Quantum ML"], base: [-15, -15, -15], infoPrefix: "Quantum:", sentencePrefix: "Exploring future computational paradigms like" },
+            "Biologically Plausible Learning": { labels: ["Synaptic Plasticity", "Neuromodulation", "Homeostasis", "Local Learning Rules", "Spike-Timing-Dependent Plasticity (STDP)"], base: [30, 0, 0], infoPrefix: "Bio Learning:", sentencePrefix: "Learning mechanisms inspired by biology include" },
+            "Developmental AI": { labels: ["Intrinsic Motivation", "Curiosity-Driven Learning", "Sensorimotor Stages", "Affordance Learning", "Skill Acquisition"], base: [-30, 0, 0], infoPrefix: "Growth:", sentencePrefix: "Acquiring skills progressively involves" },
+            "Causality": { labels: ["Causal Inference", "Structural Causal Models", "Do-Calculus", "Counterfactuals", "Intervention"], base: [0, 30, 0], infoPrefix: "Cause/Effect:", sentencePrefix: "Understanding action outcomes requires reasoning about" },
+            "Theory of Computation": { labels: ["Turing Machines", "Computability", "Complexity Classes (P vs NP)", "Automata Theory", "Formal Languages"], base: [0, -30, 0], infoPrefix: "Computation Theory:", sentencePrefix: "Fundamental limits of processing relate to" },
+             "Cybernetics": { labels: ["Feedback Loops", "Control Systems", "Communication Theory", "Self-Regulation", "Homeostasis (biological)"], base: [0, 0, 30], infoPrefix: "Systems:", sentencePrefix: "Maintaining stability through interaction uses" },
+             // --- NEW Space Category ---
+             "Spacecraft Operations": { labels: ["Asteroid Navigation", "Orbital Docking", "Deep Space Probe", "Fleet Coordination", "Emergency Maneuvers", "Resource Scanning", "Interstellar Travel", "Lander Control"], base: [0, 15, 35], infoPrefix: "Space Ops:", sentencePrefix: "Autonomous control in space involves" },
+             "Team": { labels: [], base: [0, -15, -15], infoPrefix: "Team:", sentencePrefix: "" }
+        };
+        const clusterCenters = {};
+
+        // Populate conceptNodesData with new color palette
+        for (const categoryName in categories) {
+             if (categoryName === "Team") {
+                 const [bx, by, bz] = categories[categoryName].base;
+                 clusterCenters[categoryName] = new THREE.Vector3(bx, by, bz);
+                 continue;
+             }
+
+            const category = categories[categoryName];
+            const [bx, by, bz] = category.base;
+            const centerPoint = new THREE.Vector3(bx, by, bz);
+            clusterCenters[categoryName] = centerPoint;
+
+            category.labels.forEach(label => {
+                const info = `${category.infoPrefix} ${label}. Part of ${categoryName.toLowerCase().replace('/', ' and ')}.`;
+                const sentence = `${category.sentencePrefix} ${label.toLowerCase()}.`;
+                // Assign color from the palette
+                const conceptColor = conceptColorPalette[conceptColorIndex % conceptColorPalette.length];
+                conceptColorIndex++; // Move to next color
+
+                conceptNodesData.push({
+                    type: 'concept',
+                    spawnPosition: randomPosition(bx, by, bz, conceptNodeSpread), // Store initial position
+                    label: label,
+                    category: categoryName,
+                    clusterCenter: centerPoint,
+                    info: info,
+                    color: conceptColor, // Use palette color
+                    sentence: sentence
+                });
+            });
+        }
+
+        // --- Paper Node Definitions ---
+        // (Paper definitions remain the same as previous version)
+        const existingPapersInput = [
+            { name: "JARVIS-VLA", url: "https://x.com/_akhaliq/status/1903155708457013610?s=12&t=TGTk_lVC4Ugrh9Op2GBFbQ", category: "Human-Robot Interaction", fullName: "JARVIS-VLA: A Generalist Vision-Language-Action Model for Robotic Control" },
+            { name: "Gemma3", url: "https://storage.googleapis.com/deepmind-media/gemma/Gemma3Report.pdf", category: "Natural Language Processing", fullName: "Gemma3 Technical Report" },
+            { name: "Portal Agents", url: "https://zhongwen.one/projects/portal/", category: "Multi-Agent Systems", fullName: "Agents Play Thousands of 3D Video Games through Procedurally Generated Worlds (Portal)" },
+            { name: "LLDMs", url: "https://arxiv.org/abs/2502.09992", category: "Core AI/ML", fullName: "Large Language Diffusion Models" },
+            { name: "GRPO From Scratch", url: "https://github.com/aburkov/theLMbook/blob/main/GRPO_From_Scratch_Multi_GPU_DataParallel_Qwen_2_5_1_5B_Instruct.ipynb", category: "Optimization Methods", fullName: "Coding GRPO from Scratch: A Guide to Distributed Implementation" },
+            { name: "Magma", url: "https://microsoft.github.io/Magma/", category: "Core AI/ML", fullName: "Magma: A Foundation Model for Multimodal AI Agents" },
+            { name: "Helix", url: "https://www.figure.ai/news/helix", category: "Embodiment", fullName: "Helix: A Vision-Language-Action Model for Generalist Humanoid Control" },
+            { name: "Scale on TPUs", url: "https://jax-ml.github.io/scaling-book/", category: "Hardware & Sensors", fullName: "How to Scale Your Model: A Systems View of LLMs on TPUs" },
+            { name: "Ultra-Scale Playbook", url: "https://huggingface.co/spaces/nanotron/ultrascale-playbook", category: "Hardware & Sensors", fullName: "The Ultra-Scale Playbook: Training LLMs on GPU Clusters" },
+            { name: "Gameplay Ideation", url: "https://www.nature.com/articles/s41586-025-08600-3", category: "Cognition/Planning", fullName: "World and Human Action Models towards gameplay ideation" },
+            { name: "Value RL Scaling", url: "https://arxiv.org/abs/2502.04327", category: "Action/Control", fullName: "Value-Based Deep RL Scales Predictably" },
+            { name: "Agent Scaling Laws", url: "https://arxiv.org/pdf/2411.04434", category: "Learning Paradigms", fullName: "Scaling Laws for Pre-training Agents and World Models" },
+            { name: "NSA Attention", url: "https://x.com/deepseek_ai/status/1891745487071609327", category: "Core AI/ML", fullName: "NSA: A Hardware-Aligned and Natively Trainable Sparse Attention mechanism" },
+            { name: "VideoJAM", url: "https://hila-chefer.github.io/videojam-paper.github.io/", category: "Computer Vision", fullName: "VideoJAM: Generating Videos with Motion Models and Subject Control" },
+            { name: "OpenVLA", url: "https://openvla.github.io/", category: "Human-Robot Interaction", fullName: "OpenVLA: An Open-Source Vision-Language-Action Model" },
+            { name: "π0 Policy", url: "https://www.physicalintelligence.company/blog/pi0", category: "Action/Control", fullName: "π0: Our First Generalist Policy" },
+            { name: "Spotify: Jim Fan", url: "https://open.spotify.com/episode/2YEslWY161A5nAniNse3gR?si=vNtk6EVETxqNWPHCayo9ow&nd=1&dlsi=06144c246de64a1c", category: "Embodiment", fullName: "Spotify Jim Fan on Nvidia’s Embodied AI Lab and Jensen Huang’s Prediction" },
+            { name: "Human-level FPS RL", url: "https://www.davidsilver.uk/wp-content/uploads/2020/03/ctf_compressed.pdf", category: "Multi-Agent Systems", fullName: "Human-level performance in first-person multiplayer games with population-based deep reinforcement learning" },
+            { name: "PaliGemma 2", url: "https://arxiv.org/pdf/2412.03555", category: "Core AI/ML", fullName: "PaliGemma 2: A Family of Versatile VLMs for Transfer" },
+            { name: "Kimi k1.5", url: "https://github.com/MoonshotAI/Kimi-k1.5", category: "Action/Control", fullName: "Kimi k1.5: Scaling Reinforcement Learning with LLMs" },
+            { name: "Compressed Video Action", url: "https://openaccess.thecvf.com/content_cvpr_2018/papers/Wu_Compressed_Video_Action_CVPR_2018_paper.pdf", category: "Computer Vision", fullName: "Compressed Video Action Recognition" },
+            { name: "SFT vs RL Generalization", url: "https://arxiv.org/pdf/2501.17161v1", category: "Learning Paradigms", fullName: "SFT Memorizes, RL Generalizes: A Comparative Study" },
+            { name: "Cosmos World Model", url: "https://arxiv.org/pdf/2501.03575v1", category: "Cognition/Planning", fullName: "Cosmos World Foundation Model Platform for Physical AI" },
+            { name: "GR00T N1", url: "https://d1qx31qr3h6wln.cloudfront.net/publications/GR00T_1_Whitepaper.pdf", category: "Embodiment", fullName: "GR00T N1: An Open Foundation Model for Generalist Humanoid Robots" },
+            { name: "Genie Presentation", url: "https://www.youtube.com/watch?v=vs5a2JTy0K0", category: "Simulation & Modeling", fullName: "Genie UCL After dark presentation" },
+            { name: "FAST Action Tokenization", url: "https://www.pi.website/research/fast", category: "Action/Control", fullName: "FAST: Efficient Action Tokenization for Vision-Language-Action Models" },
+            { name: "Gemini Robotics", url: "https://deepmind.google/discover/blog/gemini-robotics-brings-ai-into-the-physical-world/", category: "Embodiment", fullName: "Gemini Robotics: Bringing AI into the Physical World" },
+            { name: "SIMA Agent", url: "https://deepmind.google/discover/blog/sima-generalist-ai-agent-for-3d-virtual-environments/", category: "Multi-Agent Systems", fullName: "A generalist AI agent for 3D virtual environments (SIMA)" },
+            { name: "Gaming, Goats & GI", url: "https://www.youtube.com/watch?v=64pndvbbokA", category: "Cognition/Planning", fullName: "Gaming, Goats & General Intelligence with Frederic Besse" },
+            { name: "Mastering Control (World Models)", url: "https://arxiv.org/abs/2301.04104", category: "Cognition/Planning", fullName: "Mastering diverse control tasks through world models" },
+            { name: "Pandora World Model", url: "https://world-model.maitrix.org/", category: "Cognition/Planning", fullName: "Pandora: Towards General World Model with Natural Language Actions and Video States" },
+            { name: "Navigation World Models", url: "https://arxiv.org/pdf/2412.03572", category: "Navigation & Mapping", fullName: "Navigation World Models" },
+            { name: "Seaweed-7B", url: "https://arxiv.org/abs/2504.08685", category: "Computer Vision", fullName: "Seaweed-7B: Cost-Effective Training of Video Generation Foundation Model" },
+            { name: "Unified World Models", url: "https://weirdlabuw.github.io/uwm/", category: "Simulation & Modeling", fullName: "Unified World Models: Coupling Video and Action Diffusion" },
+            { name: "UI-TARS", url: "https://seed-tars.com/1.5/", category: "Human-Robot Interaction", fullName: "UI-TARS: Pioneering Automated GUI Interaction with Native Agents" },
+        ];
+        const newPapersInput = [
+             { name: "Agent57", url: "https://arxiv.org/abs/2003.13350?utm_source=chatgpt.com", category: "Action/Control", fullName: "Agent57: Outperforming the Atari Human Benchmark" },
+             { name: "Other-Play", url: "https://arxiv.org/pdf/2003.02979", category: "Multi-Agent Systems", fullName: "“Other-Play” for Zero-Shot Coordination" },
+             { name: "NetHack Env", url: "https://arxiv.org/abs/2006.13760", category: "Simulation & Modeling", fullName: "The NetHack Learning Environment" },
+             { name: "ReBeL", url: "https://arxiv.org/abs/2007.13544?utm_source=chatgpt.com", category: "Multi-Agent Systems", fullName: "Combining Deep Reinforcement Learning and Search for Imperfect-Information Games (ReBeL)" },
+             { name: "XLand", url: "https://arxiv.org/abs/2107.12808?utm_source=chatgpt.com", category: "Developmental AI", fullName: "Open-Ended Learning Leads to Generally Capable Agents (XLand)" },
+             { name: "VPT (New Link)", url: "https://arxiv.org/abs/2206.11795?utm_source=chatgpt.com", category: "Computer Vision", fullName: "Video PreTraining (VPT): Learning to Act by Watching Unlabeled Online Videos" },
+             { name: "MineDojo", url: "https://arxiv.org/pdf/2206.08853", category: "Simulation & Modeling", fullName: "MineDojo: Building Open-Ended Embodied Agents with Internet-Scale Knowledge" },
+             { name: "DeepNash", url: "https://arxiv.org/abs/2206.15378?utm_source=chatgpt.com", category: "Multi-Agent Systems", fullName: "Mastering the Game of Stratego with Model-Free Multi-Agent RL (DeepNash)" },
+             { name: "CICERO", url: "https://noambrown.github.io/papers/22-Science-Diplomacy-TR.pdf?utm_source=chatgpt.com", category: "Multi-Agent Systems", fullName: "Human-Level Play in Diplomacy (CICERO)" },
+             { name: "Voyager (New Link)", url: "https://arxiv.org/abs/2305.16291", category: "Embodiment", fullName: "Voyager: An Open-Ended Embodied Agent with Large Language Models" },
+             { name: "Diffusion WM", url: "https://diamond-wm.github.io/", category: "Cognition/Planning", fullName: "Diffusion for World Modeling" },
+        ];
+        const allPapersInput = [...existingPapersInput, ...newPapersInput];
+
+        // Populate paperNodesData
+        allPapersInput.forEach(paper => {
+            const targetCenter = clusterCenters[paper.category];
+            if (targetCenter) {
+                paperNodesData.push({
+                    type: 'paper',
+                    spawnPosition: randomPosition(targetCenter.x, targetCenter.y, targetCenter.z, paperNodeSpread), // Store spawn position
+                    label: paper.name,
+                    category: paper.category,
+                    clusterCenter: targetCenter,
+                    info: paper.fullName,
+                    color: paperNodeColor,
+                    url: paper.url,
+                });
+            } else {
+                console.warn(`Category "${paper.category}" not found for paper "${paper.name}". Skipping node.`);
+            }
+        });
+
+        // --- Team Member Definitions ---
+        const teamMembersInput = [
+            { name: "Eloi Alonso", url: "https://eloialonso.github.io/" },
+            { name: "Adam Jelley", url: "https://adamjelley.github.io/" },
+            { name: "Vincent Micheli", url: "https://vmicheli.github.io/" },
+            { name: "Pim de Witte", url: "https://pimdewitte.com/" },
+            { name: "Fredrik Noren", url: "https://www.linkedin.com/in/fredrik-noren/" },
+            { name: "Florian Laurent", url: "https://masterscrat.github.io/" }
+        ];
+
+        // Populate teamNodesData
+        const teamTargetCenter = clusterCenters["Team"];
+        if (teamTargetCenter) {
+            teamMembersInput.forEach(member => {
+                teamNodesData.push({
+                    type: 'team',
+                    spawnPosition: randomPosition(teamTargetCenter.x, teamTargetCenter.y, teamTargetCenter.z, teamNodeSpread), // Store spawn position
+                    label: member.name,
+                    category: "Team",
+                    clusterCenter: teamTargetCenter,
+                    info: member.name,
+                    color: teamNodeColor,
+                    url: member.url,
+                });
+            });
+        } else {
+            console.warn("Team category center not found. Cannot place team nodes.");
+        }
+
+        // Combine all node data
+        const allNodesData = [...conceptNodesData, ...paperNodesData, ...teamNodesData];
+
+        // --- Three.js Setup Variables & DOM Refs ---
+        let scene, camera, renderer, controls;
+        let raycaster, mouse;
+        let nodes = [];
+        let intersectedObject = null;
+        let animationFrameId = null;
+        let nodeBeingClicked = null;
+        let clickEffectStartTime = 0;
+        const clock = new THREE.Clock();
+
+        // DOM References
+        const infoBox = document.getElementById('info-box');
+        const infoLabel = document.getElementById('info-label');
+        const infoDescription = document.getElementById('info-description');
+        const canvas = document.getElementById('representation-canvas');
+        const mainVisualizationDiv = document.getElementById('main-visualization');
+        const animationOverlay = document.getElementById('animation-overlay');
+        const overlayNodeLabel = document.getElementById('overlay-node-label');
+        const overlayContent = document.getElementById('overlay-content');
+        const signalWaveContainer = document.getElementById('signal-wave');
+        const wordSelectionVis = document.getElementById('word-selection-vis');
+        const overlayOutputContainer = document.getElementById('overlay-output-container');
+        const overlayOutput = document.getElementById('overlay-output');
+        const closeAnimationOverlayBtn = document.getElementById('close-animation-overlay-btn');
+        const networkLayerDivs = overlayContent.querySelectorAll('.network-layer');
+        const disclaimerOverlay = document.getElementById('disclaimer-overlay');
+        const showDisclaimerLink = document.getElementById('show-disclaimer-link');
+        const closeDisclaimerOverlayBtn = document.getElementById('close-disclaimer-overlay-btn');
+        const teamListUl = document.getElementById('team-list');
+
+        // --- Initialization ---
+        function init() {
+            scene = new THREE.Scene();
+            // Use darker background
+            scene.background = new THREE.Color(0x050510);
+            // Adjust fog to match
+            scene.fog = new THREE.Fog(0x050510, 50, 180); // Start further, extend further
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 50;
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            const ambientLight = new THREE.AmbientLight(0xaaaaaa); // Slightly dimmer ambient for space
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); // Dimmer directional
+            directionalLight.position.set(10, 15, 10);
+            scene.add(directionalLight);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false;
+            controls.minDistance = 10;
+            controls.maxDistance = 120;
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // Create Node Geometries
+            const conceptGeometry = new THREE.SphereGeometry(conceptNodeSize, 16, 8);
+            const paperGeometry = new THREE.SphereGeometry(paperNodeSize, 12, 6);
+            const teamGeometry = new THREE.SphereGeometry(teamNodeSize, 14, 7);
+
+            // Create all nodes
+            allNodesData.forEach(data => {
+                let geometry;
+                switch (data.type) {
+                    case 'paper': geometry = paperGeometry; break;
+                    case 'team': geometry = teamGeometry; break;
+                    case 'concept': default: geometry = conceptGeometry; break;
+                }
+                const nodeColor = data.color;
+                const material = new THREE.MeshLambertMaterial({ color: nodeColor });
+                const nodeMesh = new THREE.Mesh(geometry, material);
+                // Set initial position from spawnPosition
+                nodeMesh.position.copy(data.spawnPosition);
+
+                // Store data, including base size and animation offset
+                nodeMesh.userData = {
+                    ...data,
+                    baseScale: 1.0,
+                    animOffset: Math.random() * Math.PI * 2,
+                    originalColor: new THREE.Color(nodeColor),
+                    isNode: true,
+                    // Store spawn position for movement calculation
+                    spawnPosition: data.spawnPosition.clone()
+                };
+                scene.add(nodeMesh);
+                nodes.push(nodeMesh);
+            });
+
+            // Populate Team List in Disclaimer Modal
+            teamMembersInput.forEach(member => {
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.href = member.url;
+                a.textContent = member.name;
+                a.target = "_blank";
+                a.rel = "noopener noreferrer";
+                li.appendChild(a);
+                teamListUl.appendChild(li);
+            });
+
+            // Create signal dot elements
+            signalWaveContainer.innerHTML = '';
+            for (let i = 0; i < numSignalDots; i++) {
+                const dot = document.createElement('div'); dot.classList.add('signal-dot-item');
+                dot.style.top = `${(i / (numSignalDots - 1)) * 100 - 50}%`;
+                dot.style.transform = `translateY(-50%)`;
+                signalWaveContainer.appendChild(dot);
+            }
+
+            // Event Listeners
+            window.addEventListener('resize', onWindowResize, false);
+            window.addEventListener('mousemove', onMouseMove, false);
+            canvas.addEventListener('click', onCanvasClick, false);
+            closeAnimationOverlayBtn.addEventListener('click', hideAnimationOverlay, false);
+            showDisclaimerLink.addEventListener('click', showDisclaimerOverlay, false);
+            closeDisclaimerOverlayBtn.addEventListener('click', hideDisclaimerOverlay, false);
+
+             document.querySelectorAll('#lab-links a').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    console.log(`Placeholder navigation to: ${link.getAttribute('href')}`);
+                    alert(`Placeholder: Navigating to ${link.textContent} section.`);
+                    hideDisclaimerOverlay();
+                });
+            });
+
+            startAnimationLoop();
+        }
+
+        // --- Animation Loop Control ---
+        function startAnimationLoop() { if (!animationFrameId) { animate(); } }
+        function stopAnimationLoop() { if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; } }
+
+        // --- Event Handlers ---
+        function onWindowResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
+        function onMouseMove(event) { mouse.x = (event.clientX / window.innerWidth) * 2 - 1; mouse.y = -(event.clientY / window.innerHeight) * 2 + 1; }
+        function onCanvasClick(event) {
+            if (animationOverlay.style.display === 'flex' || nodeBeingClicked || disclaimerOverlay.style.display === 'flex') return;
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(nodes);
+            if (intersects.length > 0 && intersects[0].object.userData.isNode) {
+                const clickedNodeObject = intersects[0].object;
+                const nodeData = clickedNodeObject.userData;
+                if ((nodeData.type === 'paper' || nodeData.type === 'team') && nodeData.url) {
+                    window.open(nodeData.url, '_blank');
+                }
+                else if (nodeData.type === 'concept' && nodeData.sentence) {
+                    nodeBeingClicked = clickedNodeObject;
+                    clickEffectStartTime = Date.now();
+                    nodeBeingClicked.material.color.set(clickHighlightColor);
+                    setTimeout(() => {
+                        if (nodeBeingClicked === clickedNodeObject) {
+                            showAnimationOverlay(nodeData.label, nodeData.sentence);
+                        }
+                    }, transitionDelay);
+                }
+            }
+        }
+
+        // --- Overlay Controls ---
+        let animationControl = { timeoutId: null, wordIndex: 0, words: [], isCancelled: false };
+        function showAnimationOverlay(label, sentence) { /* ... unchanged ... */
+            if (disclaimerOverlay.style.display === 'flex') return;
+            stopAnimationLoop();
+            mainVisualizationDiv.style.display = 'none';
+            overlayNodeLabel.textContent = `Exploring Concept: ${label}`;
+            animationOverlay.style.display = 'flex';
+            clearTimeout(animationControl.timeoutId);
+            animationControl.isCancelled = false;
+            signalWaveContainer.style.transition = 'none';
+            signalWaveContainer.style.opacity = '0';
+            signalWaveContainer.style.left = '-30px';
+            overlayOutput.innerHTML = '';
+            wordSelectionVis.innerHTML = '';
+            wordSelectionVis.classList.remove('visible');
+            networkLayerDivs.forEach(layer => layer.classList.remove('active'));
+            void signalWaveContainer.offsetWidth;
+            animationControl.words = sentence.split(' ');
+            animationControl.wordIndex = 0;
+            animateLLMStep();
+         }
+        function hideAnimationOverlay() { /* ... unchanged ... */
+             animationControl.isCancelled = true;
+             clearTimeout(animationControl.timeoutId);
+             animationOverlay.style.display = 'none';
+             mainVisualizationDiv.style.display = 'block';
+             if (nodeBeingClicked) {
+                 if (nodeBeingClicked !== intersectedObject) {
+                    nodeBeingClicked.material.color.copy(nodeBeingClicked.userData.originalColor);
+                 } else {
+                    nodeBeingClicked.material.color.set(highlightColor);
+                 }
+                 nodeBeingClicked = null;
+             }
+             startAnimationLoop();
+         }
+        function showDisclaimerOverlay(event) { /* ... unchanged ... */
+            event.preventDefault(); if (animationOverlay.style.display === 'flex') return;
+            stopAnimationLoop(); mainVisualizationDiv.style.display = 'none'; disclaimerOverlay.style.display = 'flex';
+         }
+        function hideDisclaimerOverlay() { /* ... unchanged ... */
+            disclaimerOverlay.style.display = 'none'; mainVisualizationDiv.style.display = 'block'; startAnimationLoop();
+         }
+
+        // --- FASTER LLM Animation Step ---
+        async function animateLLMStep() { /* ... unchanged ... */
+             if (animationControl.isCancelled) return;
+             if (animationControl.wordIndex >= animationControl.words.length) {
+                 wordSelectionVis.innerHTML = `<span class="prob-word selected">Done.</span>`;
+                 wordSelectionVis.classList.add('visible');
+                 animationControl.timeoutId = setTimeout(() => {
+                     if (!animationControl.isCancelled) wordSelectionVis.classList.remove('visible');
+                 }, 750);
+                 return;
+             }
+             const currentWord = animationControl.words[animationControl.wordIndex];
+             const stepDuration = layerPassDuration / (numNetworkLayers + 1);
+
+             signalWaveContainer.style.transition = 'none';
+             signalWaveContainer.style.left = '-30px';
+             void signalWaveContainer.offsetWidth;
+             signalWaveContainer.style.opacity = '1';
+             signalWaveContainer.style.transition = `left ${stepDuration}ms linear, opacity 0.1s linear`;
+
+             for (let currentLayer = 1; currentLayer <= numNetworkLayers + 1; currentLayer++) {
+                 if (animationControl.isCancelled) return;
+                 const targetX = ( (currentLayer -1) * (overlayContent.offsetWidth / numNetworkLayers)) ;
+                 signalWaveContainer.style.left = `${targetX}px`;
+                 if (currentLayer > 1 && currentLayer <= numNetworkLayers + 1) {
+                     networkLayerDivs[currentLayer - 2].classList.remove('active');
+                 }
+                 if (currentLayer > 0 && currentLayer <= numNetworkLayers) {
+                     networkLayerDivs[currentLayer - 1].classList.add('active');
+                 }
+                 await delay(stepDuration);
+             }
+
+             if (!animationControl.isCancelled && numNetworkLayers > 0) {
+                 networkLayerDivs[numNetworkLayers - 1].classList.remove('active');
+             }
+             signalWaveContainer.style.opacity = '0';
+
+             if (animationControl.isCancelled) return;
+
+             wordSelectionVis.innerHTML = '';
+             genericAlternatives.forEach(altWord => {
+                 if (altWord.toLowerCase() !== currentWord.toLowerCase()) {
+                     const altSpan = document.createElement('span'); altSpan.textContent = altWord; altSpan.classList.add('prob-word', 'alternative'); wordSelectionVis.appendChild(altSpan);
+                 }
+             });
+             const selectedSpan = document.createElement('span'); selectedSpan.textContent = currentWord; selectedSpan.classList.add('prob-word', 'selected');
+             const insertIndex = Math.floor(Math.random() * (wordSelectionVis.children.length + 1));
+             wordSelectionVis.insertBefore(selectedSpan, wordSelectionVis.children[insertIndex]);
+             wordSelectionVis.classList.add('visible');
+
+             await delay(wordSelectionDuration);
+
+             if (animationControl.isCancelled) return;
+             wordSelectionVis.classList.remove('visible');
+
+             const span = document.createElement('span'); span.textContent = currentWord + ' '; span.classList.add('current-word'); overlayOutput.appendChild(span);
+             animationControl.wordIndex++;
+
+             if (!animationControl.isCancelled) {
+                 animationControl.timeoutId = setTimeout(animateLLMStep, wordAppendDelay);
+             }
+         }
+
+        // --- Core Logic: Intersection Checks ---
+        function checkIntersections() { /* ... unchanged ... */
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(nodes);
+
+            let newIntersectedObject = null;
+            if (intersects.length > 0 && intersects[0].object.userData.isNode) {
+                newIntersectedObject = intersects[0].object;
+            }
+
+            if (intersectedObject !== newIntersectedObject) {
+                if (intersectedObject && intersectedObject !== nodeBeingClicked) {
+                    intersectedObject.material.color.copy(intersectedObject.userData.originalColor);
+                }
+                intersectedObject = newIntersectedObject;
+                if (intersectedObject) {
+                    if (intersectedObject !== nodeBeingClicked) {
+                        intersectedObject.material.color.set(highlightColor);
+                    }
+                    infoLabel.textContent = intersectedObject.userData.label;
+                    infoDescription.textContent = intersectedObject.userData.info;
+                    infoLabel.classList.remove('paper-title', 'team-title');
+                    if (intersectedObject.userData.type === 'paper') {
+                        infoLabel.classList.add('paper-title');
+                    } else if (intersectedObject.userData.type === 'team') {
+                        infoLabel.classList.add('team-title');
+                    }
+                    infoBox.style.display = 'block';
+                } else {
+                    infoBox.style.display = 'none';
+                }
+            }
+         }
+
+
+        // --- Main Animation Loop (Handles Node Movement & Scaling) ---
+        function animate() {
+            animationFrameId = requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            const elapsed = clock.getElapsedTime();
+            const now = Date.now(); // For click effect timing
+
+            controls.update();
+            checkIntersections();
+
+            const cameraPosition = camera.position;
+
+            nodes.forEach(node => {
+                const nodeData = node.userData;
+                let baseScale = nodeData.baseScale || 1.0;
+                let targetScale = baseScale;
+                let isClickEffectActive = false;
+
+                // --- Node Movement ---
+                // Calculate target position based on oscillation around spawn point
+                const moveOffset = new THREE.Vector3(
+                    Math.sin(elapsed * nodeMoveFreq * 0.8 + nodeData.animOffset) * nodeMoveAmplitude, // Vary freq per axis slightly
+                    Math.cos(elapsed * nodeMoveFreq * 1.2 + nodeData.animOffset) * nodeMoveAmplitude,
+                    Math.sin(elapsed * nodeMoveFreq + nodeData.animOffset * 0.5) * nodeMoveAmplitude
+                );
+                const targetPosition = nodeData.spawnPosition.clone().add(moveOffset);
+                // Smoothly move node towards the target position
+                node.position.lerp(targetPosition, nodeLerpFactor);
+
+                // --- Base Oscillation Scaling ---
+                const animAmp = (nodeData.type === 'paper' || nodeData.type === 'team') ? baseAnimAmpPaperTeam : baseAnimAmpConcept;
+                const oscillation = Math.sin(elapsed * baseAnimFreq + nodeData.animOffset) * animAmp;
+                targetScale += oscillation;
+
+                // --- Distance Scaling ---
+                const distance = cameraPosition.distanceTo(node.position);
+                const distanceFactor = Math.max(0, 1.0 - distance / distanceScaleFactor);
+                const distanceBonus = maxDistanceScaleBonus * distanceFactor * distanceFactor;
+                targetScale *= (1.0 + distanceBonus);
+
+                // --- Concept Node Click Animation Effect ---
+                if (node === nodeBeingClicked && nodeData.type === 'concept') {
+                    node.material.color.set(clickHighlightColor);
+                    isClickEffectActive = true;
+                    let clickScale = 1.0;
+                    // Use Date.now() based timing for click effect consistency
+                    if (now < clickEffectStartTime + clickEffectDuration) {
+                        const elapsedClick = now - clickEffectStartTime;
+                        const progress = elapsedClick / clickEffectDuration;
+                        clickScale = 1.0 + Math.sin(progress * Math.PI) * 0.5;
+                    }
+                    targetScale = clickScale; // Override scale for click effect
+                }
+
+                // --- Hover Effect (Apply if not animating a concept click) ---
+                if (!isClickEffectActive) {
+                    if (node === intersectedObject) {
+                        targetScale = 1.3; // Hover scale overrides others
+                        node.material.color.set(highlightColor);
+                    } else {
+                        // Reset color if not hovered/clicked
+                        node.material.color.copy(nodeData.originalColor);
+                    }
+                }
+
+                // Apply scale smoothly
+                node.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
+            });
+
+            renderer.render(scene, camera);
+        }
+
+
+        // --- Initialize ---
+        window.onload = init;
+
+    </script>
+</body>
+</html>
