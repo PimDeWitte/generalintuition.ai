@@ -24,8 +24,7 @@
             -moz-user-select: none; /* Firefox */
             -ms-user-select: none; /* IE/Edge */
             -webkit-user-drag: none; /* Disable dragging */
-            /* --- ADDED: Prevent swipe navigation --- */
-            overscroll-behavior-x: none;
+            overscroll-behavior-x: none; /* Prevent swipe navigation */
         }
         canvas {
             display: block;
@@ -287,9 +286,10 @@
         const numNetworkLayers = 5;
         const clickEffectDuration = 500; // ms for click visual pulse
         const transitionDelay = 300; // ms delay before overlay shows on concept click
-        const conceptNodeSpread = 4; // How far concepts spread around papers (reduced)
-        const paperNodeSpreadRadius = 30; // Radius for distributing papers
+        const conceptNodeSpread = 5; // How far concepts spread around category centroids (slightly increased)
+        const paperNodeSpreadRadius = 35; // Radius for distributing papers (slightly increased)
         const teamNodeSpread = 5; // How far team nodes spread around origin
+        const maxConceptsPerCategory = 5; // ADDED: Limit concepts per category
 
         // Node Movement Params
         const nodeMoveAmplitude = 0.3; // Wiggle distance
@@ -304,6 +304,16 @@
         // Proximity Color Change Params
         const proximityThreshold = 5.0; // How close a team node needs to be to activate another node
         const colorLerpFactor = 0.08; // Color transition smoothness
+
+        // Cluster Line Params (Re-added)
+        const lineDefaultColor = 0x444444; // Dark gray inactive lines
+        const lineDefaultOpacity = 0.08; // Slightly lower default opacity
+        const lineActiveColor = 0xffffff; // White active lines
+        const lineMaxActiveOpacity = 0.30; // Slightly lower max active opacity
+        const lineOpacityIncreasePerProbe = 0.05; // How much opacity increases per paused team node
+        const lineTransitionSpeed = 0.1; // Line color/opacity smoothness
+        const maxLineDistanceSq = 35 * 35; // Max distance squared for connecting papers (increased slightly)
+
 
         // Background Params
         const backgroundColor = 0x020210; // Very dark blue/black
@@ -326,6 +336,10 @@
         const wordAppendDelay = 20; // Delay between appending words
         const numSignalDots = 5; // Dots in the signal wave animation
 
+        // Mobile Tap/Click Detection Params
+        const tapTimeThreshold = 250; // Max duration for a tap (ms)
+        const dragThreshold = 10; // Min distance (pixels) to be considered a drag
+
         // Concept Color Palette (for proximity activation)
         const conceptColorPalette = [
             0x4a90e2, 0xbd10e0, 0xaaaaaa, 0x7ed321, 0xf5a623, 0x50e3c2, 0xe04457,
@@ -343,7 +357,8 @@
         const genericAlternatives = ["concept", "process", "state"]; // Alternatives for LLM overlay animation
         const delay = ms => new Promise(resolve => setTimeout(resolve, ms)); // Simple async delay
         function vectorsAreEqual(v1, v2, tolerance = 0.01) {
-            return v1.distanceTo(v2) < tolerance;
+            // Check if both vectors exist before calculating distance
+            return v1 && v2 && v1.distanceTo(v2) < tolerance;
         }
 
 
@@ -384,8 +399,6 @@
               "Spacecraft Operations": { labels: ["Asteroid Navigation", "Orbital Docking", "Deep Space Probe", "Fleet Coordination", "Emergency Maneuvers", "Resource Scanning", "Interstellar Travel", "Lander Control"], infoPrefix: "Space Ops:", sentencePrefix: "Autonomous control in space involves complex tasks like Asteroid Navigation, Orbital Docking, Deep Space Probe management, and Lander Control." },
               "Human Intuition": { labels: ["Gut Feeling", "Implicit Learning", "Heuristics", "Expert Judgment", "Analogical Reasoning", "Emotional Intelligence"], infoPrefix: "Human Intuition:", sentencePrefix: "Understanding human cognition involves exploring phenomena like Gut Feelings, Implicit Learning, Heuristics, and Expert Judgment." },
               "Machine Intuition": { labels: ["Emergent Behavior", "Subsymbolic Reasoning", "Latent Representations", "Policy Gradients (RL)", "Generative Models", "Few-Shot Adaptation"], infoPrefix: "Machine Intuition:", sentencePrefix: "Developing AI capable of intuitive-like responses involves fostering Emergent Behavior, Subsymbolic Reasoning, and leveraging Latent Representations from models like Policy Gradients and Generative Models." },
-             // Team category is defined but not used for concepts now
-             // "Team": { labels: [], infoPrefix: "Team:", sentencePrefix: "Defining the collaborative structure and goals." }
          };
 
         // --- Input Data ---
@@ -454,8 +467,9 @@
         const paperNodesData = [];
         const teamNodesData = [];
         const conceptNodesData = []; // Filtered concepts
-        const paperPositions = []; // To store paper positions for team targeting
+        const paperPositions = []; // To store paper positions for team targeting and line drawing
         const paperNodeMap = new Map(); // Map category to list of papers in that category
+        const categoryCentroids = new Map(); // Map category name to centroid position
 
         // 1. Process Papers: Determine positions and group by category
         const numPapers = allPapersInput.length;
@@ -483,26 +497,37 @@
             paperNodesData.push(paperData);
             paperPositions.push(paperPos.clone()); // Store position for team targeting
 
-            // Group papers by category for concept placement
+            // Group papers by category
             if (!paperNodeMap.has(paper.category)) {
                 paperNodeMap.set(paper.category, []);
             }
             paperNodeMap.get(paper.category).push(paperData); // Store the whole data object
         });
 
-        // 2. Identify Used Categories and Filter/Place Concepts
+        // 2. Calculate Category Centroids
+        paperNodeMap.forEach((papers, categoryName) => {
+            const centroid = new THREE.Vector3(0, 0, 0);
+            papers.forEach(p => centroid.add(p.spawnPosition));
+            centroid.divideScalar(papers.length);
+            categoryCentroids.set(categoryName, centroid);
+        });
+
+
+        // 3. Identify Used Categories and Filter/Place Concepts near Centroids
         const usedCategories = new Set(allPapersInput.map(p => p.category));
         for (const categoryName in categories) {
             if (usedCategories.has(categoryName)) {
                 const category = categories[categoryName];
-                const papersInCategory = paperNodeMap.get(categoryName);
+                const centroid = categoryCentroids.get(categoryName); // Get the calculated centroid
 
-                if (papersInCategory && papersInCategory.length > 0) {
-                    category.labels.forEach(label => {
-                        // Find the first paper in this category to attach the concept to
-                        const anchorPaper = papersInCategory[0];
-                        const anchorPos = anchorPaper.spawnPosition;
+                if (centroid) { // Check if centroid exists
+                    // --- ADDED: Limit concepts per category ---
+                    const labels = category.labels;
+                    const labelsToUse = labels.length > maxConceptsPerCategory
+                        ? labels.slice(0, maxConceptsPerCategory) // Take first N
+                        : labels; // Use all if <= N
 
+                    labelsToUse.forEach(label => {
                         const info = `${category.infoPrefix} ${label}. Part of ${categoryName.toLowerCase().replace('/', ' and ')}.`;
                         const sentence = `${category.sentencePrefix} ${label.toLowerCase()}.`;
                         const originalConceptColor = conceptColorPalette[conceptColorIndex % conceptColorPalette.length];
@@ -510,11 +535,11 @@
 
                         conceptNodesData.push({
                             type: 'concept',
-                            // Spawn near the anchor paper
-                            spawnPosition: randomPosition(anchorPos.x, anchorPos.y, anchorPos.z, conceptNodeSpread),
+                            // Spawn near the category centroid
+                            spawnPosition: randomPosition(centroid.x, centroid.y, centroid.z, conceptNodeSpread),
                             label: label,
                             category: categoryName,
-                            clusterCenter: anchorPos.clone(), // Associate with the paper's position
+                            clusterCenter: centroid.clone(), // Associate with the category centroid
                             info: info,
                             originalColorHex: originalConceptColor,
                             sentence: sentence
@@ -524,7 +549,7 @@
             }
         }
 
-        // 3. Process Team Nodes
+        // 4. Process Team Nodes
         const teamSpawnCenter = new THREE.Vector3(0, 0, 0); // Spawn team near origin
         teamMembersInput.forEach(member => {
             // Pick a random paper position as the initial target
@@ -556,7 +581,7 @@
         let nodes = []; // All node meshes
         let teamNodes = []; // Just the team node meshes
         let otherNodes = []; // Concept and paper node meshes
-        // let clusterLines = []; // REMOVED Cluster lines
+        let paperConnectionLines = []; // ADDED: Lines connecting papers
         let stars; // Starfield points object
         let intersectedObject = null; // Currently hovered/targeted node
         let animationFrameId = null; // ID for cancelling animation loop
@@ -564,6 +589,13 @@
         let clickEffectStartTime = 0; // Timestamp for click animation start
         const clock = new THREE.Clock(); // For delta time calculation
         let isMobile = false; // Flag for mobile device detection
+
+        // Mobile Touch State Variables
+        let touchStartTime = 0;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isDragging = false;
+
 
         // DOM References
         const infoBox = document.getElementById('info-box');
@@ -659,50 +691,52 @@
             allNodesData.forEach(data => {
                 let geometry; let initialColor; let nodeMesh;
                 switch (data.type) {
-                    case 'paper':
-                        geometry = paperGeometry;
-                        initialColor = defaultSpaceColor; // Papers start gray until activated
-                        break;
-                    case 'team':
-                        geometry = teamGeometry;
-                        initialColor = teamNodeColor; // Team nodes start with their color
-                        break;
-                    case 'concept':
-                    default: // Default to concept
-                        geometry = conceptGeometry;
-                        initialColor = defaultSpaceColor; // Concepts start gray until activated
-                        break;
+                    case 'paper': geometry = paperGeometry; initialColor = defaultSpaceColor; break;
+                    case 'team': geometry = teamGeometry; initialColor = teamNodeColor; break;
+                    case 'concept': default: geometry = conceptGeometry; initialColor = defaultSpaceColor; break;
                 }
                 const material = new THREE.MeshLambertMaterial({ color: initialColor });
                 nodeMesh = new THREE.Mesh(geometry, material);
                 nodeMesh.position.copy(data.spawnPosition); // Use pre-calculated spawn position
                 nodeMesh.userData = {
-                    ...data, // Copy processed data (label, url, category, clusterCenter etc.)
-                    baseScale: 1.0, // Base scale for animations
-                    animOffset: Math.random() * Math.PI * 2, // Random offset for animations
-                    originalColor: new THREE.Color(data.originalColorHex), // Store original color as THREE.Color
-                    spaceColor: new THREE.Color(defaultSpaceColor), // Store inactive color
-                    targetColor: new THREE.Color(initialColor), // Current target color for lerping
-                    isNode: true, // Flag to identify these objects as interactable nodes
-                    // spawnPosition is already included from data spread
+                    ...data, baseScale: 1.0, animOffset: Math.random() * Math.PI * 2,
+                    originalColor: new THREE.Color(data.originalColorHex),
+                    spaceColor: new THREE.Color(defaultSpaceColor),
+                    targetColor: new THREE.Color(initialColor), isNode: true,
                 };
-
-                // Add reference to the actual mesh object back into the data array
-                // This is useful if we need the mesh later when processing data (e.g., finding a paper mesh by category)
-                data.mesh = nodeMesh;
-
+                data.mesh = nodeMesh; // Store mesh reference back in data
                 scene.add(nodeMesh);
                 nodes.push(nodeMesh); // Add to the list of all nodes
-
-                // Categorize for easier looping later
-                if (data.type === 'team') {
-                    teamNodes.push(nodeMesh);
-                } else {
-                    otherNodes.push(nodeMesh); // Concepts and Papers
-                }
+                if (data.type === 'team') { teamNodes.push(nodeMesh); }
+                else { otherNodes.push(nodeMesh); } // Concepts and Papers
             });
 
-            // --- REMOVED Cluster Connection Lines ---
+            // --- ADDED: Create Paper Connection Lines ---
+            const lineMaterialInactive = new THREE.LineBasicMaterial({
+                color: lineDefaultColor, transparent: true, opacity: lineDefaultOpacity, depthWrite: false
+            });
+            // Connect papers that share the same category (or connect all papers?)
+            // Let's connect all papers within a certain distance for now to reduce clutter
+            for (let i = 0; i < paperNodesData.length; i++) {
+                for (let j = i + 1; j < paperNodesData.length; j++) {
+                    const p1Data = paperNodesData[i];
+                    const p2Data = paperNodesData[j];
+                    if (p1Data.spawnPosition.distanceToSquared(p2Data.spawnPosition) < maxLineDistanceSq) {
+                         const points = [p1Data.spawnPosition, p2Data.spawnPosition];
+                         const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                         const lineMaterial = lineMaterialInactive.clone();
+                         const line = new THREE.Line(geometry, lineMaterial);
+                         line.userData = {
+                              startPoint: p1Data.spawnPosition.clone(), // Store positions for activation check
+                              endPoint: p2Data.spawnPosition.clone(),
+                              targetOpacity: lineDefaultOpacity,
+                              targetColor: new THREE.Color(lineDefaultColor)
+                          };
+                         scene.add(line);
+                         paperConnectionLines.push(line);
+                    }
+                }
+            }
 
             // --- Create Starfield ---
             const starVertices = [];
@@ -744,10 +778,15 @@
 
             // --- Event Listeners ---
             window.addEventListener('resize', onWindowResize, false);
-            window.addEventListener('mousemove', onMouseMove, false);
-            canvas.addEventListener('click', onCanvasClick, false);
-            // --- Prevent context menu on canvas (mobile hold) ---
-            canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+            // Desktop
+            canvas.addEventListener('mousemove', onMouseMove, false);
+            canvas.addEventListener('click', onCanvasClick, false); // Desktop clicks only now
+            // Mobile
+            canvas.addEventListener('touchstart', onTouchStart, { passive: false }); // Need preventDefault sometimes
+            canvas.addEventListener('touchmove', onTouchMove, { passive: false }); // Need preventDefault sometimes
+            canvas.addEventListener('touchend', onTouchEnd, false);
+            // General
+            canvas.addEventListener('contextmenu', (event) => event.preventDefault()); // Prevent context menu
             closeAnimationOverlayBtn.addEventListener('click', hideAnimationOverlay, false);
             showDisclaimerLink.addEventListener('click', showDisclaimerOverlay, false);
             closeDisclaimerOverlayBtn.addEventListener('click', hideDisclaimerOverlay, false);
@@ -778,54 +817,122 @@
              }
          }
 
+        // --- Desktop Click Handler ---
         function onCanvasClick(event) {
+            // Ignore if mobile, let touch handlers deal with it
+            if (isMobile) return;
+
             // Ignore clicks if an overlay is open or a node is already being processed for click
             if (animationOverlay.style.display === 'flex' || nodeBeingClicked || disclaimerOverlay.style.display === 'flex') return;
 
-            let clickedNodeObject = null;
+            // Desktop uses raycasting from mouse position
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(nodes);
 
-            if (isMobile) {
-                // Mobile selection uses the intersectedObject determined by checkIntersections
-                clickedNodeObject = intersectedObject;
-            } else {
-                // Desktop uses raycasting
-                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-                raycaster.setFromCamera(mouse, camera);
-                const intersects = raycaster.intersectObjects(nodes);
-                if (intersects.length > 0 && intersects[0].object.userData.isNode) {
-                    clickedNodeObject = intersects[0].object;
-                }
+            let clickedNodeObject = null;
+            if (intersects.length > 0 && intersects[0].object.userData.isNode) {
+                clickedNodeObject = intersects[0].object;
             }
 
             if (clickedNodeObject) {
-                const nodeData = clickedNodeObject.userData;
-                nodeBeingClicked = clickedNodeObject; // Mark this node as the one being processed
-                clickEffectStartTime = Date.now(); // Start visual effect timer
+                 handleNodeInteraction(clickedNodeObject); // Use common interaction handler
+            }
+        }
 
-                // Handle different click actions
-                if ((nodeData.type === 'paper' || nodeData.type === 'team') && nodeData.url) {
-                    // Open URL after a short delay (allows click effect to start)
-                    setTimeout(() => {
-                        if(nodeBeingClicked === clickedNodeObject) window.open(nodeData.url, '_blank');
-                        // Reset click state for non-concept nodes after URL open attempt
-                         if (nodeData.type !== 'concept' && nodeBeingClicked === clickedNodeObject) {
-                              // Allow click effect to end naturally in animate loop
-                         }
-                    }, 150);
-                } else if (nodeData.type === 'concept' && nodeData.sentence) {
-                    // Delay showing the overlay slightly to allow click effect to be seen
-                    setTimeout(() => {
-                        if (nodeBeingClicked === clickedNodeObject) {
-                            showAnimationOverlay(nodeData.label, nodeData.sentence);
-                            // Overlay opening will handle resetting nodeBeingClicked when closed
-                        }
-                    }, transitionDelay);
-                } else {
-                     // If it's a node without a URL or sentence
-                     // Allow click effect to end naturally in animate loop
+        // --- Mobile Touch Handlers ---
+        function onTouchStart(event) {
+            if (!isMobile) return;
+            // Prevent default only if needed (e.g., to prevent scrolling when starting drag on canvas)
+            // OrbitControls usually handles this for its own gestures.
+            // event.preventDefault();
+
+            // Only process the first touch for tap detection
+            if (event.touches.length === 1) {
+                const touch = event.touches[0];
+                touchStartTime = Date.now();
+                touchStartX = touch.clientX;
+                touchStartY = touch.clientY;
+                isDragging = false; // Reset dragging flag
+            } else {
+                // If multiple touches start (pinch), treat it as potentially not a tap
+                isDragging = true;
+            }
+        }
+
+        function onTouchMove(event) {
+            if (!isMobile || isDragging) return;
+
+            // If not already dragging, check if movement exceeds threshold
+            if (event.touches.length === 1) {
+                const touch = event.touches[0];
+                const deltaX = touch.clientX - touchStartX;
+                const deltaY = touch.clientY - touchStartY;
+                if (Math.sqrt(deltaX * deltaX + deltaY * deltaY) > dragThreshold) {
+                    isDragging = true;
+                }
+            } else {
+                 // Multi-touch move is definitely not a tap
+                 isDragging = true;
+            }
+            // We don't preventDefault here usually, let OrbitControls handle drag/pinch
+        }
+
+        function onTouchEnd(event) {
+            if (!isMobile) return;
+
+            // Check if it was a valid tap (short duration, no dragging, only one touch point involved)
+            const duration = Date.now() - touchStartTime;
+            // Use event.changedTouches for touchend, check length was 1
+            if (!isDragging && duration < tapTimeThreshold && event.changedTouches.length === 1) {
+                // --- TAP DETECTED ---
+                // Ignore taps if an overlay is open or a node is already being processed
+                if (animationOverlay.style.display === 'flex' || nodeBeingClicked || disclaimerOverlay.style.display === 'flex') return;
+
+                // Mobile selection uses the intersectedObject determined by checkIntersections
+                const tappedNodeObject = intersectedObject; // Use the object currently under reticle
+
+                if (tappedNodeObject) {
+                    handleNodeInteraction(tappedNodeObject); // Use common interaction handler
                 }
             }
+            // Reset flags after processing
+            isDragging = false;
+            touchStartTime = 0; // Reset start time
+        }
+
+
+        // --- Common Node Interaction Logic (Called by Desktop Click & Mobile Tap) ---
+        function handleNodeInteraction(nodeObject) {
+             if (!nodeObject) return; // Should not happen if called correctly
+
+             const nodeData = nodeObject.userData;
+             nodeBeingClicked = nodeObject; // Mark this node as the one being processed
+             clickEffectStartTime = Date.now(); // Start visual effect timer
+
+             // Handle different click actions
+             if ((nodeData.type === 'paper' || nodeData.type === 'team') && nodeData.url) {
+                 // Open URL after a short delay (allows click effect to start)
+                 setTimeout(() => {
+                     if(nodeBeingClicked === nodeObject) window.open(nodeData.url, '_blank');
+                     // Reset click state for non-concept nodes after URL open attempt
+                      if (nodeData.type !== 'concept' && nodeBeingClicked === nodeObject) {
+                           // Allow click effect to end naturally in animate loop
+                      }
+                 }, 150);
+             } else if (nodeData.type === 'concept' && nodeData.sentence) {
+                 // Delay showing the overlay slightly to allow click effect to be seen
+                 setTimeout(() => {
+                     if (nodeBeingClicked === nodeObject) {
+                         showAnimationOverlay(nodeData.label, nodeData.sentence);
+                         // Overlay opening will handle resetting nodeBeingClicked when closed
+                     }
+                 }, transitionDelay);
+             } else {
+                  // If it's a node without a URL or sentence
+                  // Allow click effect to end naturally in animate loop
+             }
         }
 
 
@@ -913,7 +1020,7 @@
 
             if (isMobile) {
                 // --- Mobile: Screen-Space Check (Closest to Edge) ---
-                const reticleRadiusPixels = 96 / 2; // From CSS width/height (use radius)
+                const reticleRadiusPixels = 96 / 2;
                 const reticleRadiusNDC = reticleRadiusPixels / (window.innerHeight / 2);
                 const reticleRadiusNDCSq = reticleRadiusNDC * reticleRadiusNDC;
 
@@ -1016,7 +1123,8 @@
                     // Only move if not selected
                     if (!teamData.isMovingToTarget) {
                         // Node is PAUSED (at a paper node position)
-                        const targetKey = teamData.targetClusterCenter.toArray().toString(); // Use paper position as key
+                        // Use the target position vector's string representation as the map key for safety
+                        const targetKey = teamData.targetClusterCenter.toArray().toString();
                         pausedPaperTargets.set(targetKey, (pausedPaperTargets.get(targetKey) || 0) + 1);
 
                         // Check if pause duration is over
@@ -1092,7 +1200,39 @@
             });
 
 
-            // --- REMOVED Cluster Line Activation Logic ---
+            // --- Paper Connection Line Activation Logic ---
+             paperConnectionLines.forEach(line => {
+                 const lineData = line.userData;
+                 let pausedProbesAtEnds = 0;
+                 // Check if any team node is paused near either endpoint of this line
+                 // Use string representation for keys to ensure reliable map lookup
+                 const startKey = lineData.startPoint.toArray().toString();
+                 const endKey = lineData.endPoint.toArray().toString();
+                 pausedPaperTargets.forEach((count, targetPositionVec) => {
+                     const targetKey = targetPositionVec.toArray().toString();
+                      if (targetKey === startKey || targetKey === endKey) {
+                           pausedProbesAtEnds += count;
+                      }
+                 });
+
+                 let targetOpacity;
+                 if (!lineData.targetColor) lineData.targetColor = new THREE.Color(); // Initialize if needed
+
+                 if (pausedProbesAtEnds > 0) {
+                     // Activate line: White color, increased opacity
+                     targetOpacity = Math.min(lineMaxActiveOpacity, lineDefaultOpacity + lineOpacityIncreasePerProbe * pausedProbesAtEnds);
+                     lineData.targetColor.setHex(lineActiveColor);
+                 } else {
+                     // Deactivate line: Default gray color, default opacity
+                     targetOpacity = lineDefaultOpacity;
+                     lineData.targetColor.setHex(lineDefaultColor);
+                 }
+                 lineData.targetOpacity = targetOpacity; // Store target for lerping
+
+                 // Smoothly transition opacity and color
+                 line.material.opacity = THREE.MathUtils.lerp(line.material.opacity, lineData.targetOpacity, lineTransitionSpeed);
+                 line.material.color.lerp(lineData.targetColor, lineTransitionSpeed);
+             });
 
 
             // --- Proximity Color Change & Other Node Updates (Concepts & Papers) ---
@@ -1126,8 +1266,8 @@
                         Math.cos(elapsed * nodeMoveFreq * 1.2 + nodeData.animOffset) * nodeMoveAmplitude,
                         Math.sin(elapsed * nodeMoveFreq + nodeData.animOffset * 0.5) * nodeMoveAmplitude
                     );
-                    // Wiggle around spawn position for papers, or clusterCenter (paper position) for concepts
-                    const anchorPos = nodeData.spawnPosition; // All nodes now have a fixed spawn position
+                    // Wiggle around spawn position
+                    const anchorPos = nodeData.spawnPosition;
                     const targetPosition = anchorPos.clone().add(moveOffset);
                     node.position.lerp(targetPosition, nodeLerpFactor);
                 }
