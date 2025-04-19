@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>General Intuition - NYC Based AI Research Lab</title>
+    <title>General Intuition - Research Lab</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,10 +19,22 @@
             color: #eee;
             background-color: #020210; /* Ensure background is set */
             touch-action: none; /* Prevent default touch actions like scrolling/zooming on the page */
+            /* --- ADDED: Prevent text selection on hold --- */
+            user-select: none; /* Standard */
+            -webkit-user-select: none; /* Safari/Chrome */
+            -moz-user-select: none; /* Firefox */
+            -ms-user-select: none; /* IE/Edge */
+            -webkit-user-drag: none; /* Disable dragging */
         }
         canvas {
             display: block;
              touch-action: manipulation; /* Allows pinch zoom etc. handled by JS */
+             /* --- ADDED: Ensure canvas also prevents selection if body style isn't enough --- */
+             user-select: none;
+             -webkit-user-select: none;
+             -moz-user-select: none;
+             -ms-user-select: none;
+             -webkit-user-drag: none;
          }
         #info-box, #instructions {
             position: absolute;
@@ -322,7 +334,7 @@
         const numSignalDots = 5; // Dots in the signal wave animation
 
         // Mobile Camera Nudge Param
-        const mobileNudgeLerpFactor = 0.04; // How strongly the camera nudges towards the target on mobile hover
+        const mobileNudgeLerpFactor = 0.1; // Increased strength for nudge effect
 
         // Concept Color Palette (for proximity activation)
         const conceptColorPalette = [
@@ -507,8 +519,6 @@
         const clock = new THREE.Clock(); // For delta time calculation
         let isMobile = false; // Flag for mobile device detection
 
-        // REMOVED Camera Snap State Variables
-
         // DOM References
         const infoBox = document.getElementById('info-box');
         const infoLabel = document.getElementById('info-label');
@@ -582,6 +592,10 @@
             controls.minDistance = 5; // Allow slightly closer zoom
             controls.maxDistance = 120; // Prevent zooming too far out
             controls.enablePan = !isMobile; // Disable pan initially if mobile
+            // --- ADDED: Allow full vertical rotation ---
+            controls.minPolarAngle = 0; // radians
+            controls.maxPolarAngle = Math.PI; // radians
+
 
             // Raycaster setup (for mouse/reticle intersection)
             raycaster = new THREE.Raycaster();
@@ -677,6 +691,8 @@
             window.addEventListener('resize', onWindowResize, false);
             window.addEventListener('mousemove', onMouseMove, false);
             canvas.addEventListener('click', onCanvasClick, false);
+            // --- ADDED: Prevent context menu on canvas (mobile hold) ---
+            canvas.addEventListener('contextmenu', (event) => event.preventDefault());
             closeAnimationOverlayBtn.addEventListener('click', hideAnimationOverlay, false);
             showDisclaimerLink.addEventListener('click', showDisclaimerOverlay, false);
             closeDisclaimerOverlayBtn.addEventListener('click', hideDisclaimerOverlay, false);
@@ -727,8 +743,6 @@
                 const nodeData = clickedNodeObject.userData;
                 nodeBeingClicked = clickedNodeObject; // Mark this node as the one being processed
                 clickEffectStartTime = Date.now(); // Start visual effect timer
-
-                // --- REMOVED Camera Snap Initiation ---
 
                 // Handle different click actions
                 if ((nodeData.type === 'paper' || nodeData.type === 'team') && nodeData.url) {
@@ -906,12 +920,10 @@
             const elapsed = clock.getElapsedTime();
             const now = Date.now();
 
-            // --- REMOVED Camera Snapping Logic ---
-
             // --- Mobile Camera Nudge ---
             // Gently nudge camera target towards hovered node on mobile (if not clicking)
             if (isMobile && intersectedObject && !nodeBeingClicked) {
-                controls.target.lerp(intersectedObject.position, mobileNudgeLerpFactor);
+                controls.target.lerp(intersectedObject.position, mobileNudgeLerpFactor); // Increased factor
             }
 
             // Update controls AFTER potential nudging adjustments
@@ -938,13 +950,23 @@
                         // Node is PAUSED
                         const centerKey = teamData.targetClusterCenter.toArray().toString();
                         pausedClusterCenters.set(centerKey, (pausedClusterCenters.get(centerKey) || 0) + 1);
+
+                        // Check if pause duration is over
                         if (now > teamData.pauseEndTime) {
-                            let newTargetIndex;
-                            let currentTargetIndex = conceptClusterCenters.findIndex(center => vectorsAreEqual(center, teamData.targetClusterCenter));
-                            do { newTargetIndex = Math.floor(Math.random() * conceptClusterCenters.length); }
-                            while (newTargetIndex === currentTargetIndex && conceptClusterCenters.length > 1);
-                            teamData.targetClusterCenter.copy(conceptClusterCenters[newTargetIndex]);
-                            teamData.isMovingToTarget = true;
+                            // *** MODIFIED: Check selection state before resuming ***
+                            if (!isSelected) { // Double check here, though outer check should suffice
+                                // Select a new, different target cluster
+                                let newTargetIndex;
+                                let currentTargetIndex = conceptClusterCenters.findIndex(center => vectorsAreEqual(center, teamData.targetClusterCenter));
+                                do {
+                                    newTargetIndex = Math.floor(Math.random() * conceptClusterCenters.length);
+                                } while (newTargetIndex === currentTargetIndex && conceptClusterCenters.length > 1);
+                                teamData.targetClusterCenter.copy(conceptClusterCenters[newTargetIndex]);
+                                teamData.isMovingToTarget = true; // Start moving again
+                            } else {
+                                // If selected when pause ends, reset the timer to stay paused
+                                teamData.pauseEndTime = now + teamPauseDuration;
+                            }
                         }
                     } else {
                         // Node is MOVING
