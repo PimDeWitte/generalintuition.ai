@@ -18,12 +18,10 @@
             font-family: 'Inter', sans-serif;
             color: #eee;
             background-color: #020210; /* Ensure background is set */
-            /* --- ADDED: Prevent default touch actions like scrolling/zooming on the page --- */
-            touch-action: none;
+            touch-action: none; /* Prevent default touch actions like scrolling/zooming on the page */
         }
         canvas {
             display: block;
-             /* --- ADDED: Ensure canvas touch actions are handled by JS (OrbitControls) --- */
              touch-action: manipulation; /* Allows pinch zoom etc. handled by JS */
          }
         #info-box, #instructions {
@@ -72,32 +70,43 @@
             padding: 6px 12px;
             text-align: center;
         }
-        /* --- Mobile Reticle --- */
+        /* --- Mobile Reticle (Enlarged) --- */
         #mobile-reticle {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 24px; /* Size of the target */
-            height: 24px; /* Size of the target */
-            border: 2px solid rgba(255, 255, 255, 0.6); /* White, semi-transparent */
+            /* --- Increased Size (4x original 24px) --- */
+            width: 96px;
+            height: 96px;
+            border: 2px solid rgba(255, 255, 255, 0.3); /* Make border less opaque */
             border-radius: 50%;
             pointer-events: none; /* Doesn't interfere with other interactions */
             display: none; /* Hidden by default, shown via JS for mobile */
             z-index: 50; /* Above canvas, below overlays */
             box-sizing: border-box;
+            transition: border-color 0.2s ease; /* Smooth transition on target lock */
         }
-        /* Style for the inner dot of the reticle */
+        /* Style for the inner dot of the reticle (Enlarged) */
          #mobile-reticle::after {
              content: '';
              position: absolute;
              top: 50%;
              left: 50%;
              transform: translate(-50%, -50%);
-             width: 4px;
-             height: 4px;
-             background-color: rgba(255, 255, 255, 0.6);
+             /* --- Increased Size (4x original 4px) --- */
+             width: 16px;
+             height: 16px;
+             background-color: rgba(255, 255, 255, 0.3); /* Make dot less opaque */
              border-radius: 50%;
+             transition: background-color 0.2s ease; /* Smooth transition on target lock */
+         }
+         /* Style when reticle is over a target */
+         #mobile-reticle.target-locked {
+             border-color: rgba(0, 255, 0, 0.7); /* Brighter green border */
+         }
+         #mobile-reticle.target-locked::after {
+              background-color: rgba(0, 255, 0, 0.7); /* Brighter green dot */
          }
 
 
@@ -111,13 +120,12 @@
         }
         #instructions a:hover { text-decoration: underline; }
 
-        /* --- Overlay Styles (Unchanged) --- */
+        /* --- Overlay Styles --- */
         #animation-overlay, #disclaimer-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             display: none; justify-content: center; align-items: center;
             z-index: 100; padding: 20px; box-sizing: border-box;
             font-family: 'Inter', sans-serif;
-             /* Prevent touch interference with overlays */
              touch-action: auto; /* Allow scrolling within disclaimer if needed */
         }
         #animation-overlay { background-color: rgba(0, 0, 0, 0.9); flex-direction: column; }
@@ -151,7 +159,7 @@
         }
         .close-overlay-btn:hover { background-color: #aa0000; }
 
-        /* --- Disclaimer Overlay Styles (Updated Content Area) --- */
+        /* --- Disclaimer Overlay Styles --- */
         #disclaimer-content {
             background-color: rgba(0, 0, 0, 0.6); border: 1px solid #0ff; border-radius: 8px;
             padding: 25px 35px; max-width: 650px; /* Adjusted max-width */
@@ -199,7 +207,7 @@
         }
 
 
-        /* --- Animations (Unchanged) --- */
+        /* --- Animations --- */
         @keyframes fadeInLayer { from { opacity: 0; transform: scaleY(0.5); } to { opacity: 1; transform: scaleY(1); } }
         @keyframes nodeClickFlash { 0%, 100% { transform: scale(1.0); } 50% { transform: scale(1.5); } }
         @keyframes fadeHighlight { from { background-color: rgba(0, 255, 0, 0.3); } to { background-color: transparent; } }
@@ -278,8 +286,8 @@
         const nodeLerpFactor = 0.02; // Wiggle smoothness (lower is smoother)
 
         // Team Probe Movement Params
-        const teamMoveSpeed = 0.01; // Speed towards target cluster (slightly increased for visibility)
-        const teamTargetReachedThreshold = 2.5; // Node stops when distance is less than this (slightly reduced)
+        const teamMoveSpeed = 0.01; // Speed towards target cluster
+        const teamTargetReachedThreshold = 2.5; // Node stops when distance is less than this
         const teamPauseDuration = 2500; // Pause time in milliseconds at cluster
 
         // Proximity Color Change Params
@@ -315,6 +323,11 @@
         const wordAppendDelay = 20; // Delay between appending words
         const numSignalDots = 5; // Dots in the signal wave animation
 
+        // Camera Snap Params
+        const cameraSnapDistance = 20; // How far the camera should be from the node after snapping
+        const cameraSnapLerpFactor = 0.06; // How quickly the camera snaps (lower is slower)
+        const snapCompletionThreshold = 0.1; // How close camera/target need to be to finish snapping
+
         // Concept Color Palette (for proximity activation)
         const conceptColorPalette = [
             0x4a90e2, 0xbd10e0, 0xaaaaaa, 0x7ed321, 0xf5a623, 0x50e3c2, 0xe04457,
@@ -337,7 +350,6 @@
 
 
         // --- Node Data ---
-        // (Node data definitions remain the same as provided)
         const conceptNodesData = [];
         const paperNodesData = [];
         const teamNodesData = [];
@@ -377,7 +389,6 @@
               "Spacecraft Operations": { labels: ["Asteroid Navigation", "Orbital Docking", "Deep Space Probe", "Fleet Coordination", "Emergency Maneuvers", "Resource Scanning", "Interstellar Travel", "Lander Control"], base: [0, 15, 35], infoPrefix: "Space Ops:", sentencePrefix: "Autonomous control in space involves complex tasks like Asteroid Navigation, Orbital Docking, Deep Space Probe management, and Lander Control." },
               "Human Intuition": { labels: ["Gut Feeling", "Implicit Learning", "Heuristics", "Expert Judgment", "Analogical Reasoning", "Emotional Intelligence"], base: [35, 15, 15], infoPrefix: "Human Intuition:", sentencePrefix: "Understanding human cognition involves exploring phenomena like Gut Feelings, Implicit Learning, Heuristics, and Expert Judgment." },
               "Machine Intuition": { labels: ["Emergent Behavior", "Subsymbolic Reasoning", "Latent Representations", "Policy Gradients (RL)", "Generative Models", "Few-Shot Adaptation"], base: [-35, -15, -15], infoPrefix: "Machine Intuition:", sentencePrefix: "Developing AI capable of intuitive-like responses involves fostering Emergent Behavior, Subsymbolic Reasoning, and leveraging Latent Representations from models like Policy Gradients and Generative Models." },
-             // Added a placeholder sentence for Team as labels are empty. Adjust if needed.
               "Team": { labels: [], base: [0, -15, -15], infoPrefix: "Team:", sentencePrefix: "Defining the collaborative structure and goals." }
          };
         const clusterCenters = {};
@@ -390,7 +401,7 @@
             const centerPoint = new THREE.Vector3(bx, by, bz);
             clusterCenters[categoryName] = centerPoint;
              if (categoryName !== "Team") conceptClusterCenters.push(centerPoint);
-             if (categoryName === "Team") continue; // Skip creating concept nodes for the "Team" category itself
+             if (categoryName === "Team") continue;
             category.labels.forEach(label => {
                 const info = `${category.infoPrefix} ${label}. Part of ${categoryName.toLowerCase().replace('/', ' and ')}.`;
                 const sentence = `${category.sentencePrefix} ${label.toLowerCase()}.`;
@@ -499,6 +510,12 @@
         let clickEffectStartTime = 0; // Timestamp for click animation start
         const clock = new THREE.Clock(); // For delta time calculation
         let isMobile = false; // Flag for mobile device detection
+
+        // Camera Snap State
+        let isCameraSnapping = false;
+        let cameraSnapTargetPosition = new THREE.Vector3(); // Target for camera position
+        let cameraSnapTargetLookAt = new THREE.Vector3(); // Target for controls.target
+
         // DOM References
         const infoBox = document.getElementById('info-box');
         const infoLabel = document.getElementById('info-label');
@@ -569,97 +586,56 @@
             controls.enableDamping = true; // Smooth camera movement
             controls.dampingFactor = 0.05;
             controls.screenSpacePanning = false; // Panning moves parallel to camera plane
-            controls.minDistance = 10; // Prevent zooming too close
+            controls.minDistance = 5; // Allow slightly closer zoom for snapping
             controls.maxDistance = 120; // Prevent zooming too far out
             controls.enablePan = !isMobile; // Disable pan initially if mobile
 
             // Raycaster setup (for mouse/reticle intersection)
             raycaster = new THREE.Raycaster();
             mouse = new THREE.Vector2(); // Stores normalized mouse coordinates (-1 to +1)
-            raycaster.params.Points.threshold = 2.0; // Raycaster sensitivity for Points objects (like stars, though not used for node intersection here)
-            raycaster.params.Line.threshold = 1.0; // Sensitivity for Line objects (if needed)
+            raycaster.params.Points.threshold = 2.0;
+            raycaster.params.Line.threshold = 1.0;
 
             // --- Create Nodes ---
-            // Shared Geometries (performance boost)
             const conceptGeometry = new THREE.SphereGeometry(conceptNodeSize, 16, 8);
             const paperGeometry = new THREE.SphereGeometry(paperNodeSize, 12, 6);
             const teamGeometry = new THREE.SphereGeometry(teamNodeSize, 14, 7);
 
-            // Create Node Meshes
             allNodesData.forEach(data => {
-                let geometry;
-                let initialColor;
-                let nodeMesh;
-
-                // Select geometry and initial color based on node type
+                let geometry; let initialColor; let nodeMesh;
                 switch (data.type) {
-                    case 'paper':
-                        geometry = paperGeometry;
-                        initialColor = defaultSpaceColor; // Papers start gray until activated
-                        break;
-                    case 'team':
-                        geometry = teamGeometry;
-                        initialColor = teamNodeColor; // Team nodes start with their color
-                        break;
-                    case 'concept':
-                    default: // Default to concept
-                        geometry = conceptGeometry;
-                        initialColor = defaultSpaceColor; // Concepts start gray until activated
-                        break;
+                    case 'paper': geometry = paperGeometry; initialColor = defaultSpaceColor; break;
+                    case 'team': geometry = teamGeometry; initialColor = teamNodeColor; break;
+                    case 'concept': default: geometry = conceptGeometry; initialColor = defaultSpaceColor; break;
                 }
-
-                // Material for the node (Lambert reflects light, good performance)
                 const material = new THREE.MeshLambertMaterial({ color: initialColor });
                 nodeMesh = new THREE.Mesh(geometry, material);
-                nodeMesh.position.copy(data.spawnPosition); // Set initial position
-
-                // Store data directly on the mesh's userData property for easy access
+                nodeMesh.position.copy(data.spawnPosition);
                 nodeMesh.userData = {
-                    ...data, // Copy all properties from node data (label, url, etc.)
-                    baseScale: 1.0, // Base scale for animations
-                    animOffset: Math.random() * Math.PI * 2, // Random offset for animations
-                    originalColor: new THREE.Color(data.originalColorHex), // Store original color as THREE.Color
-                    spaceColor: new THREE.Color(defaultSpaceColor), // Store inactive color
-                    targetColor: new THREE.Color(initialColor), // Current target color for lerping
-                    isNode: true, // Flag to identify these objects as interactable nodes
-                    spawnPosition: data.spawnPosition.clone(), // Store the initial spawn position
+                    ...data, baseScale: 1.0, animOffset: Math.random() * Math.PI * 2,
+                    originalColor: new THREE.Color(data.originalColorHex),
+                    spaceColor: new THREE.Color(defaultSpaceColor),
+                    targetColor: new THREE.Color(initialColor), isNode: true,
+                    spawnPosition: data.spawnPosition.clone(),
                 };
-
-                scene.add(nodeMesh); // Add the node to the scene
-                nodes.push(nodeMesh); // Add to the list of all nodes
-
-                // Categorize for easier looping later
-                if (data.type === 'team') {
-                    teamNodes.push(nodeMesh);
-                } else {
-                    otherNodes.push(nodeMesh); // Concepts and Papers
-                }
+                scene.add(nodeMesh);
+                nodes.push(nodeMesh);
+                if (data.type === 'team') teamNodes.push(nodeMesh); else otherNodes.push(nodeMesh);
             });
 
             // --- Create Cluster Connection Lines ---
-            // Material for inactive lines
             const lineMaterialInactive = new THREE.LineBasicMaterial({
-                color: lineDefaultColor,
-                transparent: true,
-                opacity: lineDefaultOpacity,
-                depthWrite: false // Prevent lines from obscuring nodes behind them unnecessarily
+                color: lineDefaultColor, transparent: true, opacity: lineDefaultOpacity, depthWrite: false
             });
-
-            // Create lines between each pair of *concept* cluster centers
             for (let i = 0; i < conceptClusterCenters.length; i++) {
                 for (let j = i + 1; j < conceptClusterCenters.length; j++) {
                     const points = [conceptClusterCenters[i], conceptClusterCenters[j]];
                     const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                    // Clone the inactive material for each line initially
                     const lineMaterial = lineMaterialInactive.clone();
                     const line = new THREE.Line(geometry, lineMaterial);
-
-                    // Store line-specific data
                     line.userData = {
-                         startPoint: conceptClusterCenters[i],
-                         endPoint: conceptClusterCenters[j],
-                         targetOpacity: lineDefaultOpacity, // Target opacity for lerping
-                         targetColor: new THREE.Color(lineDefaultColor) // Target color for lerping
+                         startPoint: conceptClusterCenters[i], endPoint: conceptClusterCenters[j],
+                         targetOpacity: lineDefaultOpacity, targetColor: new THREE.Color(lineDefaultColor)
                      };
                     scene.add(line);
                     clusterLines.push(line);
@@ -669,54 +645,36 @@
             // --- Create Starfield ---
             const starVertices = [];
             for (let i = 0; i < starCount; i++) {
-                // Generate random positions within a sphere
                 const x = THREE.MathUtils.randFloatSpread(starSphereRadius * 2);
                 const y = THREE.MathUtils.randFloatSpread(starSphereRadius * 2);
                 const z = THREE.MathUtils.randFloatSpread(starSphereRadius * 2);
                 const vec = new THREE.Vector3(x, y, z);
-
-                // Ensure stars are within a spherical shell (not too close, not too far)
-                if (vec.length() > starSphereRadius) {
-                    vec.setLength(starSphereRadius * THREE.MathUtils.randFloat(0.8, 1.0)); // Push distant stars inwards
-                } else if (vec.length() < 50) {
-                     vec.setLength(50 + Math.random() * 50); // Push close stars outwards
-                }
+                if (vec.length() > starSphereRadius) { vec.setLength(starSphereRadius * THREE.MathUtils.randFloat(0.8, 1.0)); }
+                else if (vec.length() < 50) { vec.setLength(50 + Math.random() * 50); }
                 starVertices.push(vec.x, vec.y, vec.z);
             }
-            // Geometry for the stars
             const starGeometry = new THREE.BufferGeometry();
             starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-            // Material for the stars (PointsMaterial)
             const starMaterial = new THREE.PointsMaterial({
-                color: 0xaaaaaa,
-                size: 0.3, // Adjust size as needed
-                sizeAttenuation: true, // Stars appear smaller further away
-                transparent: true,
-                opacity: 0.7,
-                depthWrite: false // Prevent stars obscuring things
+                color: 0xaaaaaa, size: 0.3, sizeAttenuation: true,
+                transparent: true, opacity: 0.7, depthWrite: false
             });
             stars = new THREE.Points(starGeometry, starMaterial);
             scene.add(stars);
 
             // --- Populate Team List in Disclaimer Modal ---
-            teamListUl.innerHTML = ''; // Clear any existing items
+            teamListUl.innerHTML = '';
             teamMembersInput.forEach(member => {
-                const li = document.createElement('li');
-                const a = document.createElement('a');
-                a.href = member.url;
-                a.textContent = member.name;
-                a.target = "_blank"; // Open link in new tab
-                a.rel = "noopener noreferrer"; // Security best practice
-                li.appendChild(a);
-                teamListUl.appendChild(li);
+                const li = document.createElement('li'); const a = document.createElement('a');
+                a.href = member.url; a.textContent = member.name;
+                a.target = "_blank"; a.rel = "noopener noreferrer";
+                li.appendChild(a); teamListUl.appendChild(li);
             });
 
             // --- Create signal dot elements for LLM overlay ---
-            signalWaveContainer.innerHTML = ''; // Clear existing
+            signalWaveContainer.innerHTML = '';
             for (let i = 0; i < numSignalDots; i++) {
-                const dot = document.createElement('div');
-                dot.classList.add('signal-dot-item');
-                // Position dots vertically within the wave container
+                const dot = document.createElement('div'); dot.classList.add('signal-dot-item');
                 dot.style.top = `${(i / (numSignalDots - 1)) * 100 - 50}%`;
                 dot.style.transform = `translateY(-50%)`;
                 signalWaveContainer.appendChild(dot);
@@ -724,8 +682,8 @@
 
             // --- Event Listeners ---
             window.addEventListener('resize', onWindowResize, false);
-            window.addEventListener('mousemove', onMouseMove, false); // Only needed for desktop hover
-            canvas.addEventListener('click', onCanvasClick, false); // Handles clicks on nodes
+            window.addEventListener('mousemove', onMouseMove, false);
+            canvas.addEventListener('click', onCanvasClick, false);
             closeAnimationOverlayBtn.addEventListener('click', hideAnimationOverlay, false);
             showDisclaimerLink.addEventListener('click', showDisclaimerOverlay, false);
             closeDisclaimerOverlayBtn.addEventListener('click', hideDisclaimerOverlay, false);
@@ -734,31 +692,18 @@
         }
 
         // --- Animation Loop Control ---
-        function startAnimationLoop() {
-             if (!animationFrameId) { // Prevent multiple loops
-                 animate();
-             }
-         }
-        function stopAnimationLoop() {
-             if (animationFrameId) {
-                 cancelAnimationFrame(animationFrameId);
-                 animationFrameId = null;
-             }
-         }
+        function startAnimationLoop() { if (!animationFrameId) { animate(); } }
+        function stopAnimationLoop() { if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; } }
 
         // --- Event Handlers ---
         function onWindowResize() {
-             // Update camera aspect ratio and projection matrix
              camera.aspect = window.innerWidth / window.innerHeight;
              camera.updateProjectionMatrix();
-             // Resize renderer
              renderer.setSize(window.innerWidth, window.innerHeight);
-             // Re-check mobile status as window size might change device type perception
              detectMobile();
          }
 
         function onMouseMove(event) {
-             // Update mouse coordinates only if on desktop (mobile uses reticle)
              if (!isMobile) {
                  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
                  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -766,77 +711,81 @@
          }
 
         function onCanvasClick(event) {
-            // Ignore clicks if an overlay is open or a node is already being processed
-            if (animationOverlay.style.display === 'flex' || nodeBeingClicked || disclaimerOverlay.style.display === 'flex') return;
+            // Ignore clicks if an overlay is open or a node is already being processed for click/snap
+            if (animationOverlay.style.display === 'flex' || nodeBeingClicked || isCameraSnapping || disclaimerOverlay.style.display === 'flex') return;
 
             let clickedNodeObject = null;
 
             if (isMobile) {
-                // Mobile: Use the object currently under the center reticle (updated continuously by checkIntersections)
                 clickedNodeObject = intersectedObject;
             } else {
-                // Desktop: Use the mouse click position to find the clicked object
                 mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
                 mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
                 raycaster.setFromCamera(mouse, camera);
-                const intersects = raycaster.intersectObjects(nodes); // Check intersection with all nodes
+                const intersects = raycaster.intersectObjects(nodes);
                 if (intersects.length > 0 && intersects[0].object.userData.isNode) {
-                    // Get the closest intersected node
                     clickedNodeObject = intersects[0].object;
                 }
             }
 
-            // Perform action if a node was targeted
             if (clickedNodeObject) {
                 const nodeData = clickedNodeObject.userData;
+                nodeBeingClicked = clickedNodeObject; // Mark this node as the one being processed
+                clickEffectStartTime = Date.now(); // Start visual effect timer
 
-                // Open URL for paper or team nodes
+                // --- Initiate Camera Snap ---
+                isCameraSnapping = true;
+                cameraSnapTargetLookAt.copy(nodeBeingClicked.position); // Target lookAt is the node center
+
+                // Calculate target camera position: maintain distance but align with node
+                const offsetDirection = camera.position.clone().sub(nodeBeingClicked.position).normalize();
+                cameraSnapTargetPosition.copy(nodeBeingClicked.position).add(offsetDirection.multiplyScalar(cameraSnapDistance));
+
+                // Handle different click actions AFTER setting up snap
                 if ((nodeData.type === 'paper' || nodeData.type === 'team') && nodeData.url) {
-                    window.open(nodeData.url, '_blank');
-                }
-                // Show animation overlay for concept nodes
-                else if (nodeData.type === 'concept' && nodeData.sentence) {
-                    // Prevent re-clicking the same node while animating/transitioning
-                    if(nodeBeingClicked !== clickedNodeObject) {
-                        nodeBeingClicked = clickedNodeObject; // Mark this node as being clicked
-                        clickEffectStartTime = Date.now(); // Start the visual click effect timer
-
-                        // Delay showing the overlay slightly to allow click effect to be seen
-                        setTimeout(() => {
-                            // Double-check if this is still the node being processed after the delay
-                            if (nodeBeingClicked === clickedNodeObject) {
-                                showAnimationOverlay(nodeData.label, nodeData.sentence);
-                            }
-                        }, transitionDelay);
-                    }
+                    // Open URL after a short delay (allows snap to start)
+                    setTimeout(() => {
+                        // Check if the same node is still selected before opening URL
+                        if(nodeBeingClicked === clickedNodeObject) window.open(nodeData.url, '_blank');
+                        // Reset click state for non-concept nodes after URL open attempt
+                         if (nodeData.type !== 'concept' && nodeBeingClicked === clickedNodeObject) {
+                             // Keep snapping, but allow click effect to end naturally in animate loop
+                         }
+                    }, 150); // Short delay before opening URL
+                } else if (nodeData.type === 'concept' && nodeData.sentence) {
+                     // Delay showing the overlay slightly to allow click/snap effect to be seen
+                    setTimeout(() => {
+                        // Double-check if this is still the node being processed after the delay
+                        if (nodeBeingClicked === clickedNodeObject) {
+                            showAnimationOverlay(nodeData.label, nodeData.sentence);
+                            // Overlay opening will handle resetting nodeBeingClicked when closed
+                        }
+                    }, transitionDelay); // Use existing transition delay
+                } else {
+                     // If it's a node without a URL or sentence (e.g., future node types)
+                     // Keep snapping, allow click effect to end naturally in animate loop
                 }
             }
         }
 
 
         // --- Overlay Controls ---
-        let animationControl = { timeoutId: null, wordIndex: 0, words: [], isCancelled: false }; // State for LLM animation
+        let animationControl = { timeoutId: null, wordIndex: 0, words: [], isCancelled: false };
 
         function showAnimationOverlay(label, sentence) {
-            if (disclaimerOverlay.style.display === 'flex') return; // Don't show if disclaimer is open
+            if (disclaimerOverlay.style.display === 'flex') return;
             stopAnimationLoop(); // Pause the main 3D animation
-            mainVisualizationDiv.style.display = 'none'; // Hide the 3D view
+            mainVisualizationDiv.style.display = 'none';
             overlayNodeLabel.textContent = `Exploring Concept: ${label}`;
-            animationOverlay.style.display = 'flex'; // Show the animation overlay
-            clearTimeout(animationControl.timeoutId); // Clear any pending animation steps
-            animationControl.isCancelled = false; // Reset cancellation flag
+            animationOverlay.style.display = 'flex';
+            clearTimeout(animationControl.timeoutId);
+            animationControl.isCancelled = false;
 
             // Reset animation elements
-            signalWaveContainer.style.transition = 'none'; // Disable transitions for immediate reset
-            signalWaveContainer.style.opacity = '0';
-            signalWaveContainer.style.left = '-30px';
-            overlayOutput.innerHTML = ''; // Clear previous output text
-            wordSelectionVis.innerHTML = ''; // Clear word selection visualizer
-            wordSelectionVis.classList.remove('visible');
-            networkLayerDivs.forEach(layer => layer.classList.remove('active')); // Deactivate layers
-
-            // Force reflow before starting animation to ensure resets apply
-            void signalWaveContainer.offsetWidth;
+            signalWaveContainer.style.transition = 'none'; signalWaveContainer.style.opacity = '0'; signalWaveContainer.style.left = '-30px';
+            overlayOutput.innerHTML = ''; wordSelectionVis.innerHTML = ''; wordSelectionVis.classList.remove('visible');
+            networkLayerDivs.forEach(layer => layer.classList.remove('active'));
+            void signalWaveContainer.offsetWidth; // Force reflow
 
             // Start the LLM animation process
             animationControl.words = sentence.split(' ');
@@ -845,154 +794,90 @@
          }
 
         function hideAnimationOverlay() {
-             animationControl.isCancelled = true; // Signal ongoing animation steps to stop
-             clearTimeout(animationControl.timeoutId); // Stop any pending timeouts
-             animationOverlay.style.display = 'none'; // Hide the overlay
-             mainVisualizationDiv.style.display = 'block'; // Show the 3D view again
-             nodeBeingClicked = null; // Reset clicked state IMPORTANT: Do this AFTER potentially checking in animate()
-             startAnimationLoop(); // Resume the main 3D animation
+             animationControl.isCancelled = true; clearTimeout(animationControl.timeoutId);
+             animationOverlay.style.display = 'none';
+             mainVisualizationDiv.style.display = 'block';
+             // Reset click/snap state when overlay closes
+             nodeBeingClicked = null;
+             isCameraSnapping = false; // Ensure snapping stops if overlay is closed prematurely
+             startAnimationLoop();
          }
 
         function showDisclaimerOverlay(event) {
-            event.preventDefault(); // Prevent default link behavior
-            if (animationOverlay.style.display === 'flex') return; // Don't show if animation overlay is open
-            stopAnimationLoop(); // Pause the main 3D animation
-            mainVisualizationDiv.style.display = 'none'; // Hide the 3D view
-            disclaimerOverlay.style.display = 'flex'; // Show the disclaimer overlay
+            event.preventDefault();
+            if (animationOverlay.style.display === 'flex' || isCameraSnapping) return; // Also prevent opening if snapping
+            stopAnimationLoop(); mainVisualizationDiv.style.display = 'none'; disclaimerOverlay.style.display = 'flex';
          }
 
         function hideDisclaimerOverlay() {
-            disclaimerOverlay.style.display = 'none'; // Hide the disclaimer
-            mainVisualizationDiv.style.display = 'block'; // Show the 3D view
-            startAnimationLoop(); // Resume the main 3D animation
+            disclaimerOverlay.style.display = 'none'; mainVisualizationDiv.style.display = 'block';
+            // Reset click/snap state if disclaimer is closed
+            nodeBeingClicked = null;
+            isCameraSnapping = false;
+            startAnimationLoop();
          }
 
-        // --- FASTER LLM Animation Step ---
+        // --- FASTER LLM Animation Step --- (Unchanged from previous version)
         async function animateLLMStep() {
-             if (animationControl.isCancelled) return; // Stop if cancelled
-
-             // Check if animation is complete
+             if (animationControl.isCancelled) return;
              if (animationControl.wordIndex >= animationControl.words.length) {
-                 wordSelectionVis.innerHTML = `<span class="prob-word selected">Done.</span>`;
-                 wordSelectionVis.classList.add('visible');
-                 // Keep "Done" visible briefly
-                 animationControl.timeoutId = setTimeout(() => {
-                     if (!animationControl.isCancelled) wordSelectionVis.classList.remove('visible');
-                 }, 750);
-                 return;
+                 wordSelectionVis.innerHTML = `<span class="prob-word selected">Done.</span>`; wordSelectionVis.classList.add('visible');
+                 animationControl.timeoutId = setTimeout(() => { if (!animationControl.isCancelled) wordSelectionVis.classList.remove('visible'); }, 750); return;
              }
-
-             const currentWord = animationControl.words[animationControl.wordIndex];
-             const stepDuration = layerPassDuration / (numNetworkLayers + 1); // Time per layer pass
-
-             // --- Signal Wave Animation ---
-             signalWaveContainer.style.transition = 'none'; // Reset transition for positioning
-             signalWaveContainer.style.left = '-30px'; // Start position
-             void signalWaveContainer.offsetWidth; // Force reflow
-             signalWaveContainer.style.opacity = '1'; // Make visible
-             // Enable transition for movement
+             const currentWord = animationControl.words[animationControl.wordIndex]; const stepDuration = layerPassDuration / (numNetworkLayers + 1);
+             signalWaveContainer.style.transition = 'none'; signalWaveContainer.style.left = '-30px'; void signalWaveContainer.offsetWidth; signalWaveContainer.style.opacity = '1';
              signalWaveContainer.style.transition = `left ${stepDuration}ms linear, opacity 0.1s linear`;
-
-             // Animate wave across layers
              for (let currentLayer = 1; currentLayer <= numNetworkLayers + 1; currentLayer++) {
-                 if (animationControl.isCancelled) return;
-                 // Calculate target X position for the wave
-                 const targetX = ( (currentLayer -1) * (overlayContent.offsetWidth / numNetworkLayers)) ;
-                 signalWaveContainer.style.left = `${targetX}px`;
-
-                 // Deactivate previous layer, activate current layer
-                 if (currentLayer > 1 && currentLayer <= numNetworkLayers + 1) {
-                     networkLayerDivs[currentLayer - 2].classList.remove('active');
-                 }
-                 if (currentLayer > 0 && currentLayer <= numNetworkLayers) {
-                     networkLayerDivs[currentLayer - 1].classList.add('active');
-                 }
-                 await delay(stepDuration); // Wait for the wave to reach the next point
+                 if (animationControl.isCancelled) return; const targetX = ( (currentLayer -1) * (overlayContent.offsetWidth / numNetworkLayers)) ; signalWaveContainer.style.left = `${targetX}px`;
+                 if (currentLayer > 1 && currentLayer <= numNetworkLayers + 1) networkLayerDivs[currentLayer - 2].classList.remove('active');
+                 if (currentLayer > 0 && currentLayer <= numNetworkLayers) networkLayerDivs[currentLayer - 1].classList.add('active'); await delay(stepDuration);
              }
-
-             // Deactivate the last layer and hide the wave
-             if (!animationControl.isCancelled && numNetworkLayers > 0) {
-                 networkLayerDivs[numNetworkLayers - 1].classList.remove('active');
-             }
-             signalWaveContainer.style.opacity = '0';
-             if (animationControl.isCancelled) return;
-
-             // --- Word Selection Visualization ---
-             wordSelectionVis.innerHTML = ''; // Clear previous words
-             // Add alternative words
-             genericAlternatives.forEach(altWord => {
-                 if (altWord.toLowerCase() !== currentWord.toLowerCase()) {
-                     const altSpan = document.createElement('span');
-                     altSpan.textContent = altWord;
-                     altSpan.classList.add('prob-word', 'alternative');
-                     wordSelectionVis.appendChild(altSpan);
-                 }
-             });
-             // Add the selected word
-             const selectedSpan = document.createElement('span');
-             selectedSpan.textContent = currentWord;
-             selectedSpan.classList.add('prob-word', 'selected');
-             // Insert selected word at a random position among alternatives
-             const insertIndex = Math.floor(Math.random() * (wordSelectionVis.children.length + 1));
-             wordSelectionVis.insertBefore(selectedSpan, wordSelectionVis.children[insertIndex]);
-
-             wordSelectionVis.classList.add('visible'); // Show the word selection
-             await delay(wordSelectionDuration); // Wait briefly
-             if (animationControl.isCancelled) return;
-             wordSelectionVis.classList.remove('visible'); // Hide the word selection
-
-             // --- Append Word to Output ---
-             const span = document.createElement('span');
-             span.textContent = currentWord + ' '; // Add space after word
-             span.classList.add('current-word'); // Add class for highlight animation
-             overlayOutput.appendChild(span);
-
-             // Move to the next word
-             animationControl.wordIndex++;
-             if (!animationControl.isCancelled) {
-                 // Schedule the next step after a short delay
-                 animationControl.timeoutId = setTimeout(animateLLMStep, wordAppendDelay);
-             }
+             if (!animationControl.isCancelled && numNetworkLayers > 0) networkLayerDivs[numNetworkLayers - 1].classList.remove('active');
+             signalWaveContainer.style.opacity = '0'; if (animationControl.isCancelled) return; wordSelectionVis.innerHTML = '';
+             genericAlternatives.forEach(altWord => { if (altWord.toLowerCase() !== currentWord.toLowerCase()) { const altSpan = document.createElement('span'); altSpan.textContent = altWord; altSpan.classList.add('prob-word', 'alternative'); wordSelectionVis.appendChild(altSpan); } });
+             const selectedSpan = document.createElement('span'); selectedSpan.textContent = currentWord; selectedSpan.classList.add('prob-word', 'selected');
+             const insertIndex = Math.floor(Math.random() * (wordSelectionVis.children.length + 1)); wordSelectionVis.insertBefore(selectedSpan, wordSelectionVis.children[insertIndex]);
+             wordSelectionVis.classList.add('visible'); await delay(wordSelectionDuration); if (animationControl.isCancelled) return; wordSelectionVis.classList.remove('visible');
+             const span = document.createElement('span'); span.textContent = currentWord + ' '; span.classList.add('current-word'); overlayOutput.appendChild(span);
+             animationControl.wordIndex++; if (!animationControl.isCancelled) animationControl.timeoutId = setTimeout(animateLLMStep, wordAppendDelay);
          }
 
         // --- Core Logic: Intersection Checks ---
         function checkIntersections() {
             let raycastOrigin;
-            if (isMobile) {
-                // Mobile: Raycast from the center of the screen (where the reticle is)
-                raycastOrigin = new THREE.Vector2(0, 0);
-            } else {
-                // Desktop: Raycast from the current mouse position
-                raycastOrigin = mouse;
-            }
+            if (isMobile) { raycastOrigin = new THREE.Vector2(0, 0); }
+            else { raycastOrigin = mouse; }
 
-            // Update the raycaster with the camera and origin point
             raycaster.setFromCamera(raycastOrigin, camera);
-            // Find objects intersecting the raycaster's ray
-            const intersects = raycaster.intersectObjects(nodes); // Check against all nodes
+            const intersects = raycaster.intersectObjects(nodes);
 
             let newIntersectedObject = null;
-            // Check if any node was intersected
             if (intersects.length > 0 && intersects[0].object.userData.isNode) {
-                newIntersectedObject = intersects[0].object; // Get the closest one
+                newIntersectedObject = intersects[0].object;
             }
+
+            // Update reticle style if mobile
+            if (isMobile && mobileReticle) {
+                 if (newIntersectedObject) {
+                     mobileReticle.classList.add('target-locked');
+                 } else {
+                     mobileReticle.classList.remove('target-locked');
+                 }
+             }
 
             // Update info box only if the intersected object has changed
             if (intersectedObject !== newIntersectedObject) {
-                intersectedObject = newIntersectedObject; // Update the globally tracked intersected object
+                intersectedObject = newIntersectedObject;
 
                 if (intersectedObject) {
-                    // Display info for the intersected node
                     const data = intersectedObject.userData;
                     infoLabel.textContent = data.label;
                     infoDescription.textContent = data.info;
-                    // Apply CSS class based on node type for styling the info box border/header
                     infoBox.className = 'hover-' + data.type;
-                    infoBox.style.display = 'block'; // Show the info box
+                    infoBox.style.display = 'block';
                 } else {
-                    // No intersection, hide the info box
                     infoBox.style.display = 'none';
-                    infoBox.className = ''; // Clear type class
+                    infoBox.className = '';
                 }
             }
          }
@@ -1000,207 +885,194 @@
 
         // --- Main Animation Loop ---
         function animate() {
-            animationFrameId = requestAnimationFrame(animate); // Schedule next frame
-            const delta = clock.getDelta(); // Time since last frame
-            const elapsed = clock.getElapsedTime(); // Total time elapsed
-            const now = Date.now(); // Current timestamp
+            animationFrameId = requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            const elapsed = clock.getElapsedTime();
+            const now = Date.now();
 
-            controls.update(); // Update camera controls (applies damping)
+            // --- Camera Snapping Logic ---
+            if (isCameraSnapping) {
+                // Smoothly move camera position
+                camera.position.lerp(cameraSnapTargetPosition, cameraSnapLerpFactor);
+                // Smoothly move controls target (lookAt point)
+                controls.target.lerp(cameraSnapTargetLookAt, cameraSnapLerpFactor);
 
-            checkIntersections(); // Update intersectedObject based on mobile/desktop input
-
-            // Rotate starfield slowly
-            if (stars) {
-                stars.rotation.y += delta * 0.01;
-                stars.rotation.x += delta * 0.005;
+                // Check if snapping is complete
+                if (camera.position.distanceTo(cameraSnapTargetPosition) < snapCompletionThreshold &&
+                    controls.target.distanceTo(cameraSnapTargetLookAt) < snapCompletionThreshold) {
+                    camera.position.copy(cameraSnapTargetPosition); // Snap exactly to final position
+                    controls.target.copy(cameraSnapTargetLookAt); // Snap exactly to final target
+                    isCameraSnapping = false;
+                    // Don't reset nodeBeingClicked here, allow click effect to finish or overlay to open/close
+                }
             }
 
+            // Update controls AFTER potential snapping adjustments
+            // OrbitControls needs update() to be called each frame to handle damping, user input etc.
+            controls.update();
+
+            checkIntersections(); // Update intersected object and reticle style
+
+            // Rotate starfield
+            if (stars) { stars.rotation.y += delta * 0.01; stars.rotation.x += delta * 0.005; }
+
             const cameraPosition = camera.position;
-            const pausedClusterCenters = new Map(); // Track how many probes are paused at each cluster center
+            const pausedClusterCenters = new Map();
 
             // --- Team Node Update Loop ---
             teamNodes.forEach(teamNode => {
                 const teamData = teamNode.userData;
+                let isSelected = (teamNode === nodeBeingClicked); // Check if this node is the selected one
 
-                // *** OPTIMIZATION: PAUSE MOVEMENT IF HOVERED/SELECTED ***
-                if (teamNode === intersectedObject || teamNode === nodeBeingClicked) {
-                    // If the node is hovered or being clicked, skip movement logic for this frame
-                    // We still need to update scale/color below, so don't 'continue' the loop here.
-                } else {
-                    // --- Team Node Movement & Pause Logic ---
+                // --- Team Node Movement & Pause Logic ---
+                // *** MODIFIED: Pause movement ONLY if selected (clicked), not just hovered ***
+                if (!isSelected) {
+                    // Only move if not selected
                     if (!teamData.isMovingToTarget) {
-                        // Node is currently PAUSED at a cluster
+                        // Node is PAUSED
                         const centerKey = teamData.targetClusterCenter.toArray().toString();
                         pausedClusterCenters.set(centerKey, (pausedClusterCenters.get(centerKey) || 0) + 1);
-
-                        // Check if pause duration is over
                         if (now > teamData.pauseEndTime) {
-                            // Select a new, *different* target cluster
                             let newTargetIndex;
                             let currentTargetIndex = conceptClusterCenters.findIndex(center => vectorsAreEqual(center, teamData.targetClusterCenter));
-                            do {
-                                newTargetIndex = Math.floor(Math.random() * conceptClusterCenters.length);
-                            } while (newTargetIndex === currentTargetIndex && conceptClusterCenters.length > 1); // Ensure it's a different cluster
-
+                            do { newTargetIndex = Math.floor(Math.random() * conceptClusterCenters.length); }
+                            while (newTargetIndex === currentTargetIndex && conceptClusterCenters.length > 1);
                             teamData.targetClusterCenter.copy(conceptClusterCenters[newTargetIndex]);
-                            teamData.isMovingToTarget = true; // Start moving again
+                            teamData.isMovingToTarget = true;
                         }
                     } else {
-                        // Node is MOVING towards the target cluster
+                        // Node is MOVING
                         const distanceToTarget = teamNode.position.distanceTo(teamData.targetClusterCenter);
-
-                        // *** ANTI-SNAP FIX: Check distance BEFORE lerping ***
                         if (distanceToTarget <= teamTargetReachedThreshold) {
-                            // If already close enough, stop moving *without* lerping further this frame
-                            teamData.isMovingToTarget = false; // Stop moving
-                            teamData.pauseEndTime = now + teamPauseDuration; // Set pause timer
+                            teamData.isMovingToTarget = false;
+                            teamData.pauseEndTime = now + teamPauseDuration;
                         } else {
-                            // If still far away, continue moving towards the target
                             teamNode.position.lerp(teamData.targetClusterCenter, teamMoveSpeed);
                         }
                     }
-                } // End of hover/select check for movement
+                } // End if(!isSelected) block for movement
 
-                // --- Team Node Scaling (Visual effect, happens even if paused/hovered) ---
+                // --- Team Node Scaling (Visual effect, happens even if selected/paused) ---
                 const teamOscillation = Math.sin(elapsed * baseAnimFreq * 1.1 + teamData.animOffset) * baseAnimAmpPaperTeam;
                 let teamTargetScale = teamData.baseScale + teamOscillation;
-                // Scale up when closer to the camera
                 const teamDistance = cameraPosition.distanceTo(teamNode.position);
                 const teamDistanceFactor = Math.max(0, 1.0 - teamDistance / distanceScaleFactor);
                 const teamDistanceBonus = maxDistanceScaleBonus * teamDistanceFactor * teamDistanceFactor;
                 teamTargetScale *= (1.0 + teamDistanceBonus);
 
-                // Apply hover/target scale (overrides distance scaling)
-                if (teamNode === intersectedObject) {
+                // Apply hover scale (if not selected)
+                if (!isSelected && teamNode === intersectedObject) {
                      teamTargetScale = 1.3;
                  }
-                 // Apply click pulse scale (overrides hover/distance)
-                 if (teamNode === nodeBeingClicked) { // Team nodes don't trigger overlay, but might be clicked for URL
+                 // Apply click pulse scale (if selected)
+                 if (isSelected) {
                      let clickScale = 1.0;
                      if (now < clickEffectStartTime + clickEffectDuration) {
                          const progress = (now - clickEffectStartTime) / clickEffectDuration;
-                         clickScale = 1.0 + Math.sin(progress * Math.PI) * 0.3; // Smaller pulse for non-concept clicks
+                         clickScale = 1.0 + Math.sin(progress * Math.PI) * 0.3; // Smaller pulse
                      } else {
-                         nodeBeingClicked = null; // Reset click state after effect
+                         // Reset click state ONLY if not a concept node (concept node reset is handled by overlay close)
+                         // and if camera is done snapping
+                         if (teamData.type !== 'concept' && !isCameraSnapping) {
+                              nodeBeingClicked = null;
+                         }
                      }
-                     targetScale = clickScale;
+                     teamTargetScale = clickScale; // Click scale overrides others
                  }
 
-                // Smoothly interpolate scale
                 teamNode.scale.lerp(new THREE.Vector3(teamTargetScale, teamTargetScale, teamTargetScale), 0.1);
-                // Team node color is constant (teamNodeColor) unless specifically changed elsewhere
-                teamNode.material.color.setHex(teamNodeColor); // Ensure color stays correct
+                teamNode.material.color.setHex(teamNodeColor);
             });
 
 
-            // --- Cluster Line Activation Logic ---
+            // --- Cluster Line Activation Logic --- (Unchanged)
              clusterLines.forEach(line => {
                  const lineData = line.userData;
                  let pausedProbesAtEnds = 0;
-                 // Get string representation of endpoints for map keys
                  const startKey = lineData.startPoint.toArray().toString();
                  const endKey = lineData.endPoint.toArray().toString();
-                 // Sum probes paused at either end of the line
                  pausedProbesAtEnds += pausedClusterCenters.get(startKey) || 0;
                  pausedProbesAtEnds += pausedClusterCenters.get(endKey) || 0;
-
                  let targetOpacity;
-                 // Ensure targetColor is a THREE.Color object
                  if (!lineData.targetColor) lineData.targetColor = new THREE.Color();
-
-                 // Determine target color and opacity based on paused probes
                  if (pausedProbesAtEnds > 0) {
-                     // Activate line: White color, increased opacity
                      targetOpacity = Math.min(lineMaxActiveOpacity, lineDefaultOpacity + lineOpacityIncreasePerProbe * pausedProbesAtEnds);
                      lineData.targetColor.setHex(lineActiveColor);
                  } else {
-                     // Deactivate line: Default gray color, default opacity
                      targetOpacity = lineDefaultOpacity;
                      lineData.targetColor.setHex(lineDefaultColor);
                  }
-                 lineData.targetOpacity = targetOpacity; // Store target for lerping
-
-                 // Smoothly transition opacity and color
+                 lineData.targetOpacity = targetOpacity;
                  line.material.opacity = THREE.MathUtils.lerp(line.material.opacity, lineData.targetOpacity, lineTransitionSpeed);
                  line.material.color.lerp(lineData.targetColor, lineTransitionSpeed);
              });
 
 
             // --- Proximity Color Change & Other Node Updates (Concepts & Papers) ---
-            const activatedNodes = new Set(); // Track nodes activated by nearby team probes this frame
+            const activatedNodes = new Set();
             teamNodes.forEach(teamNode => {
                  otherNodes.forEach(otherNode => {
-                      // Check distance between team node and other node
                       if (teamNode.position.distanceTo(otherNode.position) < proximityThreshold) {
-                          activatedNodes.add(otherNode); // Mark this node as activated
+                          activatedNodes.add(otherNode);
                       }
                  });
             });
 
             otherNodes.forEach(node => {
                 const nodeData = node.userData;
+                let isSelected = (node === nodeBeingClicked); // Check if this node is selected
                 let targetScale = nodeData.baseScale || 1.0;
-                let isClickEffectActive = false;
-                // Start with the base space color (inactive gray), clone to avoid modifying the original
                 let finalTargetColor = nodeData.spaceColor.clone();
 
-                // Apply original color if activated by proximity
                 if (activatedNodes.has(node)) {
                     finalTargetColor = nodeData.originalColor.clone();
                 }
 
-                // *** OPTIMIZATION: PAUSE MOVEMENT IF HOVERED/SELECTED ***
-                if (node !== intersectedObject && node !== nodeBeingClicked) {
-                    // Node Movement (Wiggle) - Only if not hovered/selected
+                // --- Node Movement (Wiggle) ---
+                // *** MODIFIED: Pause movement ONLY if selected (clicked), not just hovered ***
+                if (!isSelected) {
+                    // Only move if not selected
                     const moveOffset = new THREE.Vector3(
                         Math.sin(elapsed * nodeMoveFreq * 0.8 + nodeData.animOffset) * nodeMoveAmplitude,
                         Math.cos(elapsed * nodeMoveFreq * 1.2 + nodeData.animOffset) * nodeMoveAmplitude,
                         Math.sin(elapsed * nodeMoveFreq + nodeData.animOffset * 0.5) * nodeMoveAmplitude
                     );
                     const targetPosition = nodeData.spawnPosition.clone().add(moveOffset);
-                    node.position.lerp(targetPosition, nodeLerpFactor); // Smoothly move towards target wiggle position
+                    node.position.lerp(targetPosition, nodeLerpFactor);
                 }
 
-                // --- Node Scaling & Color (Applied even if paused/hovered) ---
-                // Base Oscillation & Distance Scaling
-                const animAmp = baseAnimAmpConcept; // Could vary per node type if needed
+                // --- Node Scaling & Color (Applied even if selected/paused) ---
+                const animAmp = baseAnimAmpConcept;
                 const oscillation = Math.sin(elapsed * baseAnimFreq + nodeData.animOffset) * animAmp;
                 targetScale += oscillation;
-                // Scale based on distance to camera
                 const distance = cameraPosition.distanceTo(node.position);
                 const distanceFactor = Math.max(0, 1.0 - distance / distanceScaleFactor);
                 const distanceBonus = maxDistanceScaleBonus * distanceFactor * distanceFactor;
                 targetScale *= (1.0 + distanceBonus);
 
-                // Click Effect (Visual pulse for Concepts)
-                if (node === nodeBeingClicked && nodeData.type === 'concept') {
+                // Click Effect (if selected)
+                if (isSelected) {
                     finalTargetColor = new THREE.Color(clickHighlightColor); // Click color overrides others
-                    isClickEffectActive = true;
                     let clickScale = 1.0;
                     if (now < clickEffectStartTime + clickEffectDuration) {
-                        // Calculate pulse scale based on time elapsed
                         const progress = (now - clickEffectStartTime) / clickEffectDuration;
-                        clickScale = 1.0 + Math.sin(progress * Math.PI) * 0.5; // Pulse effect (grows and shrinks)
+                        clickScale = 1.0 + Math.sin(progress * Math.PI) * 0.5; // Pulse effect
                     } else {
-                        // Click effect finished. Reset click state ONLY IF the overlay isn't active
-                        // (Overlay handles resetting nodeBeingClicked when it closes)
-                        if(animationOverlay.style.display !== 'flex') {
-                             nodeBeingClicked = null;
-                        }
+                         // Reset click state ONLY if not a concept node (concept node reset is handled by overlay close)
+                         // and if camera is done snapping
+                         if (nodeData.type !== 'concept' && !isCameraSnapping) {
+                              nodeBeingClicked = null;
+                         }
                     }
                     targetScale = clickScale; // Apply pulse scale
                 }
-
-                // Hover Effect (if not being clicked)
-                if (!isClickEffectActive && node === intersectedObject) {
+                // Hover Effect (if not selected, but hovered)
+                else if (node === intersectedObject) {
                     targetScale = 1.3; // Enlarge on hover/target
-                    // Apply specific highlight color based on type (overrides proximity color)
                     if (nodeData.type === 'concept') finalTargetColor = new THREE.Color(highlightColor);
                     else if (nodeData.type === 'paper') finalTargetColor = new THREE.Color(paperHighlightColor);
-                    // Team node highlighting is handled in their own loop
                 }
 
-                // Smoothly apply final color and scale
                 node.material.color.lerp(finalTargetColor, colorLerpFactor);
                 node.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
             });
@@ -1211,7 +1083,7 @@
 
 
         // --- Initialize ---
-        window.onload = init; // Start everything when the window loads
+        window.onload = init;
 
     </script>
 </body>
