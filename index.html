@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>General Intuition - Research Lab</title>
+    <title>General Intuition - NYC Based AI Research Lab</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -76,7 +76,6 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            /* --- Increased Size (4x original 24px) --- */
             width: 96px;
             height: 96px;
             border: 2px solid rgba(255, 255, 255, 0.3); /* Make border less opaque */
@@ -94,7 +93,6 @@
              top: 50%;
              left: 50%;
              transform: translate(-50%, -50%);
-             /* --- Increased Size (4x original 4px) --- */
              width: 16px;
              height: 16px;
              background-color: rgba(255, 255, 255, 0.3); /* Make dot less opaque */
@@ -323,10 +321,8 @@
         const wordAppendDelay = 20; // Delay between appending words
         const numSignalDots = 5; // Dots in the signal wave animation
 
-        // Camera Snap Params
-        const cameraSnapDistance = 20; // How far the camera should be from the node after snapping
-        const cameraSnapLerpFactor = 0.06; // How quickly the camera snaps (lower is slower)
-        const snapCompletionThreshold = 0.1; // How close camera/target need to be to finish snapping
+        // Mobile Camera Nudge Param
+        const mobileNudgeLerpFactor = 0.04; // How strongly the camera nudges towards the target on mobile hover
 
         // Concept Color Palette (for proximity activation)
         const conceptColorPalette = [
@@ -511,10 +507,7 @@
         const clock = new THREE.Clock(); // For delta time calculation
         let isMobile = false; // Flag for mobile device detection
 
-        // Camera Snap State
-        let isCameraSnapping = false;
-        let cameraSnapTargetPosition = new THREE.Vector3(); // Target for camera position
-        let cameraSnapTargetLookAt = new THREE.Vector3(); // Target for controls.target
+        // REMOVED Camera Snap State Variables
 
         // DOM References
         const infoBox = document.getElementById('info-box');
@@ -586,7 +579,7 @@
             controls.enableDamping = true; // Smooth camera movement
             controls.dampingFactor = 0.05;
             controls.screenSpacePanning = false; // Panning moves parallel to camera plane
-            controls.minDistance = 5; // Allow slightly closer zoom for snapping
+            controls.minDistance = 5; // Allow slightly closer zoom
             controls.maxDistance = 120; // Prevent zooming too far out
             controls.enablePan = !isMobile; // Disable pan initially if mobile
 
@@ -711,14 +704,16 @@
          }
 
         function onCanvasClick(event) {
-            // Ignore clicks if an overlay is open or a node is already being processed for click/snap
-            if (animationOverlay.style.display === 'flex' || nodeBeingClicked || isCameraSnapping || disclaimerOverlay.style.display === 'flex') return;
+            // Ignore clicks if an overlay is open or a node is already being processed for click
+            if (animationOverlay.style.display === 'flex' || nodeBeingClicked || disclaimerOverlay.style.display === 'flex') return;
 
             let clickedNodeObject = null;
 
             if (isMobile) {
+                // Mobile selection uses the intersectedObject determined by checkIntersections
                 clickedNodeObject = intersectedObject;
             } else {
+                // Desktop uses raycasting
                 mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
                 mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
                 raycaster.setFromCamera(mouse, camera);
@@ -733,37 +728,29 @@
                 nodeBeingClicked = clickedNodeObject; // Mark this node as the one being processed
                 clickEffectStartTime = Date.now(); // Start visual effect timer
 
-                // --- Initiate Camera Snap ---
-                isCameraSnapping = true;
-                cameraSnapTargetLookAt.copy(nodeBeingClicked.position); // Target lookAt is the node center
+                // --- REMOVED Camera Snap Initiation ---
 
-                // Calculate target camera position: maintain distance but align with node
-                const offsetDirection = camera.position.clone().sub(nodeBeingClicked.position).normalize();
-                cameraSnapTargetPosition.copy(nodeBeingClicked.position).add(offsetDirection.multiplyScalar(cameraSnapDistance));
-
-                // Handle different click actions AFTER setting up snap
+                // Handle different click actions
                 if ((nodeData.type === 'paper' || nodeData.type === 'team') && nodeData.url) {
-                    // Open URL after a short delay (allows snap to start)
+                    // Open URL after a short delay (allows click effect to start)
                     setTimeout(() => {
-                        // Check if the same node is still selected before opening URL
                         if(nodeBeingClicked === clickedNodeObject) window.open(nodeData.url, '_blank');
                         // Reset click state for non-concept nodes after URL open attempt
                          if (nodeData.type !== 'concept' && nodeBeingClicked === clickedNodeObject) {
-                             // Keep snapping, but allow click effect to end naturally in animate loop
+                              // Allow click effect to end naturally in animate loop
                          }
-                    }, 150); // Short delay before opening URL
+                    }, 150);
                 } else if (nodeData.type === 'concept' && nodeData.sentence) {
-                     // Delay showing the overlay slightly to allow click/snap effect to be seen
+                    // Delay showing the overlay slightly to allow click effect to be seen
                     setTimeout(() => {
-                        // Double-check if this is still the node being processed after the delay
                         if (nodeBeingClicked === clickedNodeObject) {
                             showAnimationOverlay(nodeData.label, nodeData.sentence);
                             // Overlay opening will handle resetting nodeBeingClicked when closed
                         }
-                    }, transitionDelay); // Use existing transition delay
+                    }, transitionDelay);
                 } else {
-                     // If it's a node without a URL or sentence (e.g., future node types)
-                     // Keep snapping, allow click effect to end naturally in animate loop
+                     // If it's a node without a URL or sentence
+                     // Allow click effect to end naturally in animate loop
                 }
             }
         }
@@ -797,27 +784,26 @@
              animationControl.isCancelled = true; clearTimeout(animationControl.timeoutId);
              animationOverlay.style.display = 'none';
              mainVisualizationDiv.style.display = 'block';
-             // Reset click/snap state when overlay closes
+             // Reset click state when overlay closes
              nodeBeingClicked = null;
-             isCameraSnapping = false; // Ensure snapping stops if overlay is closed prematurely
              startAnimationLoop();
          }
 
         function showDisclaimerOverlay(event) {
             event.preventDefault();
-            if (animationOverlay.style.display === 'flex' || isCameraSnapping) return; // Also prevent opening if snapping
+            // Prevent opening if animation overlay is open or a node is being clicked
+            if (animationOverlay.style.display === 'flex' || nodeBeingClicked) return;
             stopAnimationLoop(); mainVisualizationDiv.style.display = 'none'; disclaimerOverlay.style.display = 'flex';
          }
 
         function hideDisclaimerOverlay() {
             disclaimerOverlay.style.display = 'none'; mainVisualizationDiv.style.display = 'block';
-            // Reset click/snap state if disclaimer is closed
+            // Reset click state if disclaimer is closed
             nodeBeingClicked = null;
-            isCameraSnapping = false;
             startAnimationLoop();
          }
 
-        // --- FASTER LLM Animation Step --- (Unchanged from previous version)
+        // --- FASTER LLM Animation Step --- (Unchanged)
         async function animateLLMStep() {
              if (animationControl.isCancelled) return;
              if (animationControl.wordIndex >= animationControl.words.length) {
@@ -843,17 +829,47 @@
          }
 
         // --- Core Logic: Intersection Checks ---
+        // Uses screen-space check for mobile, raycaster for desktop
         function checkIntersections() {
-            let raycastOrigin;
-            if (isMobile) { raycastOrigin = new THREE.Vector2(0, 0); }
-            else { raycastOrigin = mouse; }
+            let newIntersectedObject = null; // Node that becomes the intersectedObject
 
-            raycaster.setFromCamera(raycastOrigin, camera);
-            const intersects = raycaster.intersectObjects(nodes);
+            if (isMobile) {
+                // --- Mobile: Screen-Space Check ---
+                const reticleRadiusPixels = 96 / 2;
+                const reticleRadiusNDC = reticleRadiusPixels / (window.innerHeight / 2);
+                const reticleRadiusNDCSq = reticleRadiusNDC * reticleRadiusNDC;
 
-            let newIntersectedObject = null;
-            if (intersects.length > 0 && intersects[0].object.userData.isNode) {
-                newIntersectedObject = intersects[0].object;
+                let closestNode = null;
+                let minScreenDistSq = reticleRadiusNDCSq;
+
+                const center = new THREE.Vector2(0, 0);
+                const nodeWorldPos = new THREE.Vector3();
+                const nodeScreenPos = new THREE.Vector3();
+
+                nodes.forEach(node => {
+                    node.getWorldPosition(nodeWorldPos);
+                    nodeScreenPos.copy(nodeWorldPos).project(camera);
+
+                    if (nodeScreenPos.z > -1 && nodeScreenPos.z < 1 &&
+                        nodeScreenPos.x > -1.1 && nodeScreenPos.x < 1.1 &&
+                        nodeScreenPos.y > -1.1 && nodeScreenPos.y < 1.1)
+                    {
+                        const screenDistSq = nodeScreenPos.x * nodeScreenPos.x + nodeScreenPos.y * nodeScreenPos.y;
+                        if (screenDistSq < minScreenDistSq) {
+                            minScreenDistSq = screenDistSq;
+                            closestNode = node;
+                        }
+                    }
+                });
+                newIntersectedObject = closestNode;
+
+            } else {
+                // --- Desktop: Raycaster Check ---
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(nodes);
+                if (intersects.length > 0 && intersects[0].object.userData.isNode) {
+                    newIntersectedObject = intersects[0].object;
+                }
             }
 
             // Update reticle style if mobile
@@ -880,7 +896,7 @@
                     infoBox.className = '';
                 }
             }
-         }
+         } // End checkIntersections
 
 
         // --- Main Animation Loop ---
@@ -890,25 +906,15 @@
             const elapsed = clock.getElapsedTime();
             const now = Date.now();
 
-            // --- Camera Snapping Logic ---
-            if (isCameraSnapping) {
-                // Smoothly move camera position
-                camera.position.lerp(cameraSnapTargetPosition, cameraSnapLerpFactor);
-                // Smoothly move controls target (lookAt point)
-                controls.target.lerp(cameraSnapTargetLookAt, cameraSnapLerpFactor);
+            // --- REMOVED Camera Snapping Logic ---
 
-                // Check if snapping is complete
-                if (camera.position.distanceTo(cameraSnapTargetPosition) < snapCompletionThreshold &&
-                    controls.target.distanceTo(cameraSnapTargetLookAt) < snapCompletionThreshold) {
-                    camera.position.copy(cameraSnapTargetPosition); // Snap exactly to final position
-                    controls.target.copy(cameraSnapTargetLookAt); // Snap exactly to final target
-                    isCameraSnapping = false;
-                    // Don't reset nodeBeingClicked here, allow click effect to finish or overlay to open/close
-                }
+            // --- Mobile Camera Nudge ---
+            // Gently nudge camera target towards hovered node on mobile (if not clicking)
+            if (isMobile && intersectedObject && !nodeBeingClicked) {
+                controls.target.lerp(intersectedObject.position, mobileNudgeLerpFactor);
             }
 
-            // Update controls AFTER potential snapping adjustments
-            // OrbitControls needs update() to be called each frame to handle damping, user input etc.
+            // Update controls AFTER potential nudging adjustments
             controls.update();
 
             checkIntersections(); // Update intersected object and reticle style
@@ -925,7 +931,7 @@
                 let isSelected = (teamNode === nodeBeingClicked); // Check if this node is the selected one
 
                 // --- Team Node Movement & Pause Logic ---
-                // *** MODIFIED: Pause movement ONLY if selected (clicked), not just hovered ***
+                // Pause movement ONLY if selected (clicked)
                 if (!isSelected) {
                     // Only move if not selected
                     if (!teamData.isMovingToTarget) {
@@ -972,8 +978,7 @@
                          clickScale = 1.0 + Math.sin(progress * Math.PI) * 0.3; // Smaller pulse
                      } else {
                          // Reset click state ONLY if not a concept node (concept node reset is handled by overlay close)
-                         // and if camera is done snapping
-                         if (teamData.type !== 'concept' && !isCameraSnapping) {
+                         if (teamData.type !== 'concept') {
                               nodeBeingClicked = null;
                          }
                      }
@@ -1029,7 +1034,7 @@
                 }
 
                 // --- Node Movement (Wiggle) ---
-                // *** MODIFIED: Pause movement ONLY if selected (clicked), not just hovered ***
+                // Pause movement ONLY if selected (clicked)
                 if (!isSelected) {
                     // Only move if not selected
                     const moveOffset = new THREE.Vector3(
@@ -1059,8 +1064,7 @@
                         clickScale = 1.0 + Math.sin(progress * Math.PI) * 0.5; // Pulse effect
                     } else {
                          // Reset click state ONLY if not a concept node (concept node reset is handled by overlay close)
-                         // and if camera is done snapping
-                         if (nodeData.type !== 'concept' && !isCameraSnapping) {
+                         if (nodeData.type !== 'concept') {
                               nodeBeingClicked = null;
                          }
                     }
