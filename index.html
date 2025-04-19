@@ -24,6 +24,8 @@
             -moz-user-select: none; /* Firefox */
             -ms-user-select: none; /* IE/Edge */
             -webkit-user-drag: none; /* Disable dragging */
+            /* --- ADDED: Prevent swipe navigation --- */
+            overscroll-behavior-x: none;
         }
         canvas {
             display: block;
@@ -33,6 +35,7 @@
              -moz-user-select: none;
              -ms-user-select: none;
              -webkit-user-drag: none;
+             overscroll-behavior-x: none; /* Also apply here for good measure */
          }
         #info-box, #instructions {
             position: absolute;
@@ -271,9 +274,9 @@
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
         // --- Configuration ---
-        const conceptNodeSize = 0.7;
-        const paperNodeSize = 0.55;
-        const teamNodeSize = 0.6;
+        const conceptNodeSize = 0.7; // Concepts slightly larger
+        const paperNodeSize = 0.6; // Papers slightly smaller than concepts
+        const teamNodeSize = 0.6; // Team same size as papers
         const paperNodeColor = 0x00ffff; // Cyan
         const teamNodeColor = 0xffd700; // Gold
         const highlightColor = 0x00ff00; // Green (Concept hover)
@@ -284,9 +287,9 @@
         const numNetworkLayers = 5;
         const clickEffectDuration = 500; // ms for click visual pulse
         const transitionDelay = 300; // ms delay before overlay shows on concept click
-        const conceptNodeSpread = 10;
-        const paperNodeSpread = 6;
-        const teamNodeSpread = 5;
+        const conceptNodeSpread = 4; // How far concepts spread around papers (reduced)
+        const paperNodeSpreadRadius = 30; // Radius for distributing papers
+        const teamNodeSpread = 5; // How far team nodes spread around origin
 
         // Node Movement Params
         const nodeMoveAmplitude = 0.3; // Wiggle distance
@@ -294,21 +297,13 @@
         const nodeLerpFactor = 0.02; // Wiggle smoothness (lower is smoother)
 
         // Team Probe Movement Params
-        const teamMoveSpeed = 0.01; // Speed towards target cluster
+        const teamMoveSpeed = 0.01; // Speed towards target paper
         const teamTargetReachedThreshold = 2.5; // Node stops when distance is less than this
-        const teamPauseDuration = 2500; // Pause time in milliseconds at cluster
+        const teamPauseDuration = 2500; // Pause time in milliseconds at paper
 
         // Proximity Color Change Params
         const proximityThreshold = 5.0; // How close a team node needs to be to activate another node
         const colorLerpFactor = 0.08; // Color transition smoothness
-
-        // Cluster Line Params
-        const lineDefaultColor = 0x444444; // Dark gray inactive lines
-        const lineDefaultOpacity = 0.1;
-        const lineActiveColor = 0xffffff; // White active lines
-        const lineMaxActiveOpacity = 0.35;
-        const lineOpacityIncreasePerProbe = 0.06; // How much opacity increases per paused team node
-        const lineTransitionSpeed = 0.1; // Line color/opacity smoothness
 
         // Background Params
         const backgroundColor = 0x020210; // Very dark blue/black
@@ -353,68 +348,56 @@
 
 
         // --- Node Data ---
-        const conceptNodesData = [];
-        const paperNodesData = [];
-        const teamNodesData = [];
-
-       const categories = {
-             "Perception": { labels: ["Sensor Fusion", "Proprioception", "Visual Odometry", "SLAM", "Object Recognition", "Depth Sensing", "Tactile Sensing", "Auditory Scene"], base: [25, 25, 0], infoPrefix: "Sensing:", sentencePrefix: "Making sense of the world involves techniques like Sensor Fusion, Proprioception, and Visual Odometry." },
-             "Action/Control": { labels: ["Reinforcement Learning", "Inverse Kinematics", "PID Control", "Motion Planning", "Grasping", "Locomotion", "Trajectory Optimization", "Imitation Learning"], base: [-25, 25, 0], infoPrefix: "Acting:", sentencePrefix: "Generating physical behavior relies on methods such as Reinforcement Learning, Inverse Kinematics, and Motion Planning." },
-             "Cognition/Planning": { labels: ["Task Planning", "World Model", "Predictive Coding", "Affordance Theory", "Symbolic Reasoning", "Goal Setting", "Decision Making", "Memory Systems"], base: [25, -25, 0], infoPrefix: "Thinking:", sentencePrefix: "Formulating plans for interaction involves concepts like Task Planning, World Models, and Symbolic Reasoning." },
-             "Embodiment": { labels: ["Morphology", "Physical Interaction", "Degrees of Freedom", "Actuators", "Simulation Gap", "Embodied Cognition", "Soft Robotics", "Bio-inspiration"], base: [-25, -25, 0], infoPrefix: "Form:", sentencePrefix: "The physical form and its interaction capabilities are defined by aspects such as Morphology, Degrees of Freedom, and Actuators." },
-             "Core AI/ML": { labels: ["Neural Network", "Transformer", "Attention Mechanism", "Backpropagation", "Gradient Descent", "Latent Space", "CNN", "RNN", "GAN"], base: [0, 0, 25], infoPrefix: "Algorithms:", sentencePrefix: "Extracting patterns from data often utilizes core AI/ML techniques like Neural Networks, Transformers, and Backpropagation." },
-             "Learning Paradigms": { labels: ["Supervised", "Unsupervised", "Self-Supervised", "Continual Learning", "Meta-Learning", "Transfer Learning", "Active Learning", "Online Learning"], base: [0, 0, -25], infoPrefix: "Adaptation:", sentencePrefix: "Improving capabilities often involves different learning paradigms such as Supervised, Unsupervised, and Self-Supervised learning." },
-             "Human-Robot Interaction": { labels: ["Social Robotics", "Trust in Automation", "Shared Autonomy", "Teleoperation", "Gesture Recognition", "Natural Language Interface", "Explainable AI (XAI)"], base: [0, 25, 25], infoPrefix: "Collaboration:", sentencePrefix: "Facilitating human-robot collaboration relies on concepts like Social Robotics, Trust in Automation, and Shared Autonomy." },
-             "Robotic Manipulation": { labels: ["Dexterous Manipulation", "Force Control", "Assembly Tasks", "In-Hand Manipulation", "Regrasping", "Compliant Control", "Peg-in-Hole"], base: [0, -25, 25], infoPrefix: "Handling:", sentencePrefix: "Physically engaging with objects requires capabilities such as Dexterous Manipulation, Force Control, and Assembly Task execution." },
-             "Navigation & Mapping": { labels: ["Path Planning", "Global Localization", "Topological Maps", "Grid Maps", "Exploration Algorithms", "Multi-Agent Path Finding", "Semantic Mapping"], base: [25, 0, 25], infoPrefix: "Movement:", sentencePrefix: "Moving effectively through environments depends on techniques like Path Planning, Global Localization, and various Mapping strategies." },
-             "Computer Vision": { labels: ["Image Segmentation", "Pose Estimation", "Scene Understanding", "3D Reconstruction", "Optical Flow", "Feature Detection", "Video Analysis"], base: [-25, 0, 25], infoPrefix: "Seeing:", sentencePrefix: "Interpreting visual input often involves Computer Vision techniques such as Image Segmentation, Pose Estimation, and Scene Understanding." },
-             "Natural Language Processing": { labels: ["Language Models (LLMs)", "Sentiment Analysis", "Machine Translation", "Question Answering", "Text Summarization", "Named Entity Recognition", "Embeddings"], base: [25, 25, -25], infoPrefix: "Language:", sentencePrefix: "Grounding communication often involves Natural Language Processing methods like Language Models (LLMs), Sentiment Analysis, and Machine Translation." },
-             "Knowledge Representation": { labels: ["Ontologies", "Knowledge Graphs", "Logical Inference", "Semantic Web", "Rule-Based Systems", "Description Logics", "Common Sense Reasoning"], base: [-25, 25, -25], infoPrefix: "Knowledge:", sentencePrefix: "Structuring world knowledge utilizes methods such as Ontologies, Knowledge Graphs, and Logical Inference." },
-             "Optimization Methods": { labels: ["Gradient-Based Opt.", "Evolutionary Algorithms", "Bayesian Optimization", "Convex Optimization", "Integer Programming", "Search Algorithms (A*, BFS)"], base: [25, -25, -25], infoPrefix: "Optimizing:", sentencePrefix: "Finding optimal solutions or sequences often involves Optimization Methods like Gradient-Based Optimization, Evolutionary Algorithms, and Search Algorithms." },
-             "Simulation & Modeling": { labels: ["Physics Engines", "Digital Twins", "System Identification", "Agent-Based Modeling", "Finite Element Analysis", "Sim-to-Real Transfer"], base: [-25, -25, -25], infoPrefix: "Modeling:", sentencePrefix: "Anticipating system behavior and consequences often uses Simulation & Modeling tools like Physics Engines, Digital Twins, and System Identification." },
-             "Cognitive Architectures": { labels: ["SOAR", "ACT-R", "Connectionism", "Symbolic Systems", "Hybrid Architectures", "Developmental Robotics", "Modular Architectures"], base: [0, 25, -25], infoPrefix: "Mind Models:", sentencePrefix: "Integrating diverse cognitive capabilities often relies on Cognitive Architectures such as SOAR, ACT-R, and Hybrid Systems." },
-             "Neuroscience Inspiration": { labels: ["Spiking Neural Nets", "Hebbian Learning", "Hippocampal Models", "Cortical Columns", "Neural Plasticity", "Motor Cortex Models"], base: [0, -25, -25], infoPrefix: "Brain-Inspired:", sentencePrefix: "Drawing inspiration from biology involves studying mechanisms like Spiking Neural Networks, Hebbian Learning, and Neural Plasticity." },
-             "Philosophy of Mind": { labels: ["Consciousness", "Qualia", "Intentionality", "Free Will", "Mind-Body Problem", "Embodied Mind Thesis", "Extended Mind"], base: [25, 0, -25], infoPrefix: "Mind Concepts:", sentencePrefix: "Exploring fundamental questions about mind and agency involves concepts like Consciousness, Intentionality, and the Mind-Body Problem." },
-             "Ethics & Safety": { labels: ["AI Alignment", "Value Learning", "Bias Detection", "Fairness Metrics", "Robustness", "Interpretability", "Accountability"], base: [-25, 0, -25], infoPrefix: "Safety:", sentencePrefix: "Ensuring safe, reliable, and ethical AI behavior involves addressing areas like AI Alignment, Value Learning, Bias Detection, and Robustness." },
-             "Multi-Agent Systems": { labels: ["Coordination", "Cooperation", "Competition", "Swarm Intelligence", "Distributed Control", "Negotiation"], base: [15, 15, 15], infoPrefix: "Groups:", sentencePrefix: "Coordinating multiple interacting agents requires techniques for Coordination, Cooperation, Competition, and Swarm Intelligence." },
-             "Probabilistic Methods": { labels: ["Bayesian Networks", "Kalman Filters", "Particle Filters", "Gaussian Processes", "Markov Models (HMMs)", "Probabilistic Programming"], base: [-15, 15, 15], infoPrefix: "Uncertainty:", sentencePrefix: "Handling uncertainty and noisy data often involves Probabilistic Methods like Bayesian Networks, Kalman Filters, and Markov Models." },
-             "Geometric Methods": { labels: ["Lie Groups (SE3)", "Manifold Learning", "Computational Geometry", "Topology", "Differential Geometry", "Configuration Space"], base: [15, -15, 15], infoPrefix: "Geometry:", sentencePrefix: "Reasoning about spatial relationships, configurations, and transformations often uses Geometric Methods including Lie Groups, Manifold Learning, and Computational Geometry." },
-             "Information Theory": { labels: ["Entropy", "Mutual Information", "KL Divergence", "Compression", "Channel Capacity", "Coding Theory"], base: [-15, -15, 15], infoPrefix: "Information:", sentencePrefix: "Quantifying information, uncertainty, and communication efficiency uses concepts from Information Theory such as Entropy, Mutual Information, and KL Divergence." },
-             "Control Theory": { labels: ["Linear Control", "Nonlinear Control", "Adaptive Control", "Optimal Control", "Robust Control", "Stochastic Control"], base: [15, 15, -15], infoPrefix: "Dynamics:", sentencePrefix: "Achieving stable and desired system behavior often requires principles from Control Theory, including Linear Control, Adaptive Control, and Optimal Control." },
-             "Hardware & Sensors": { labels: ["LIDAR", "IMU", "Cameras", "Force Sensors", "Encoders", "Microcontrollers", "FPGAs", "GPUs"], base: [-15, 15, -15], infoPrefix: "Hardware:", sentencePrefix: "The physical interface for robotic systems includes Hardware & Sensors like LIDAR, IMUs, Cameras, and processing units such as GPUs." },
-             "Data Structures & Algo": { labels: ["Graphs", "Trees", "Hash Tables", "Sorting", "Dynamic Programming", "Complexity Theory"], base: [15, -15, -15], infoPrefix: "Computation:", sentencePrefix: "Efficient computation and data management relies on fundamental Data Structures & Algorithms like Graphs, Trees, Sorting, and Dynamic Programming." },
-             "Quantum Computing": { labels: ["Qubits", "Superposition", "Entanglement", "Quantum Gates", "Quantum Algorithms", "Quantum ML"], base: [-15, -15, -15], infoPrefix: "Quantum:", sentencePrefix: "Exploring future computational paradigms involves understanding Quantum Computing concepts such as Qubits, Superposition, Entanglement, and Quantum Algorithms." },
-             "Biologically Plausible Learning": { labels: ["Synaptic Plasticity", "Neuromodulation", "Homeostasis", "Local Learning Rules", "Spike-Timing-Dependent Plasticity (STDP)"], base: [30, 0, 0], infoPrefix: "Bio Learning:", sentencePrefix: "Developing learning mechanisms inspired by biology involves exploring concepts like Synaptic Plasticity, Neuromodulation, and Spike-Timing-Dependent Plasticity (STDP)." },
-             "Developmental AI": { labels: ["Intrinsic Motivation", "Curiosity-Driven Learning", "Sensorimotor Stages", "Affordance Learning", "Skill Acquisition"], base: [-30, 0, 0], infoPrefix: "Growth:", sentencePrefix: "Acquiring skills progressively, akin to natural development, involves concepts like Intrinsic Motivation, Curiosity-Driven Learning, and Sensorimotor Stages." },
-             "Causality": { labels: ["Causal Inference", "Structural Causal Models", "Do-Calculus", "Counterfactuals", "Intervention"], base: [0, 30, 0], infoPrefix: "Cause/Effect:", sentencePrefix: "Understanding cause-and-effect relationships and action outcomes requires reasoning about Causality using tools like Causal Inference, Structural Causal Models, and Counterfactuals." },
-             "Theory of Computation": { labels: ["Turing Machines", "Computability", "Complexity Classes (P vs NP)", "Automata Theory", "Formal Languages"], base: [0, -30, 0], infoPrefix: "Computation Theory:", sentencePrefix: "Understanding the fundamental limits and capabilities of computation relates to the Theory of Computation, including concepts like Turing Machines, Computability, and Complexity Classes." },
-              "Cybernetics": { labels: ["Feedback Loops", "Control Systems", "Communication Theory", "Self-Regulation", "Homeostasis (biological)"], base: [0, 0, 30], infoPrefix: "Systems:", sentencePrefix: "Understanding systems that maintain stability and achieve goals through feedback involves principles of Cybernetics, such as Feedback Loops, Control Systems, and Self-Regulation." },
-              "Spacecraft Operations": { labels: ["Asteroid Navigation", "Orbital Docking", "Deep Space Probe", "Fleet Coordination", "Emergency Maneuvers", "Resource Scanning", "Interstellar Travel", "Lander Control"], base: [0, 15, 35], infoPrefix: "Space Ops:", sentencePrefix: "Autonomous control in space involves complex tasks like Asteroid Navigation, Orbital Docking, Deep Space Probe management, and Lander Control." },
-              "Human Intuition": { labels: ["Gut Feeling", "Implicit Learning", "Heuristics", "Expert Judgment", "Analogical Reasoning", "Emotional Intelligence"], base: [35, 15, 15], infoPrefix: "Human Intuition:", sentencePrefix: "Understanding human cognition involves exploring phenomena like Gut Feelings, Implicit Learning, Heuristics, and Expert Judgment." },
-              "Machine Intuition": { labels: ["Emergent Behavior", "Subsymbolic Reasoning", "Latent Representations", "Policy Gradients (RL)", "Generative Models", "Few-Shot Adaptation"], base: [-35, -15, -15], infoPrefix: "Machine Intuition:", sentencePrefix: "Developing AI capable of intuitive-like responses involves fostering Emergent Behavior, Subsymbolic Reasoning, and leveraging Latent Representations from models like Policy Gradients and Generative Models." },
-              "Team": { labels: [], base: [0, -15, -15], infoPrefix: "Team:", sentencePrefix: "Defining the collaborative structure and goals." }
+        // Original categories data (used only to get concept labels/info)
+        const categories = {
+             "Perception": { labels: ["Sensor Fusion", "Proprioception", "Visual Odometry", "SLAM", "Object Recognition", "Depth Sensing", "Tactile Sensing", "Auditory Scene"], infoPrefix: "Sensing:", sentencePrefix: "Making sense of the world involves techniques like Sensor Fusion, Proprioception, and Visual Odometry." },
+             "Action/Control": { labels: ["Reinforcement Learning", "Inverse Kinematics", "PID Control", "Motion Planning", "Grasping", "Locomotion", "Trajectory Optimization", "Imitation Learning"], infoPrefix: "Acting:", sentencePrefix: "Generating physical behavior relies on methods such as Reinforcement Learning, Inverse Kinematics, and Motion Planning." },
+             "Cognition/Planning": { labels: ["Task Planning", "World Model", "Predictive Coding", "Affordance Theory", "Symbolic Reasoning", "Goal Setting", "Decision Making", "Memory Systems"], infoPrefix: "Thinking:", sentencePrefix: "Formulating plans for interaction involves concepts like Task Planning, World Models, and Symbolic Reasoning." },
+             "Embodiment": { labels: ["Morphology", "Physical Interaction", "Degrees of Freedom", "Actuators", "Simulation Gap", "Embodied Cognition", "Soft Robotics", "Bio-inspiration"], infoPrefix: "Form:", sentencePrefix: "The physical form and its interaction capabilities are defined by aspects such as Morphology, Degrees of Freedom, and Actuators." },
+             "Core AI/ML": { labels: ["Neural Network", "Transformer", "Attention Mechanism", "Backpropagation", "Gradient Descent", "Latent Space", "CNN", "RNN", "GAN"], infoPrefix: "Algorithms:", sentencePrefix: "Extracting patterns from data often utilizes core AI/ML techniques like Neural Networks, Transformers, and Backpropagation." },
+             "Learning Paradigms": { labels: ["Supervised", "Unsupervised", "Self-Supervised", "Continual Learning", "Meta-Learning", "Transfer Learning", "Active Learning", "Online Learning"], infoPrefix: "Adaptation:", sentencePrefix: "Improving capabilities often involves different learning paradigms such as Supervised, Unsupervised, and Self-Supervised learning." },
+             "Human-Robot Interaction": { labels: ["Social Robotics", "Trust in Automation", "Shared Autonomy", "Teleoperation", "Gesture Recognition", "Natural Language Interface", "Explainable AI (XAI)"], infoPrefix: "Collaboration:", sentencePrefix: "Facilitating human-robot collaboration relies on concepts like Social Robotics, Trust in Automation, and Shared Autonomy." },
+             "Robotic Manipulation": { labels: ["Dexterous Manipulation", "Force Control", "Assembly Tasks", "In-Hand Manipulation", "Regrasping", "Compliant Control", "Peg-in-Hole"], infoPrefix: "Handling:", sentencePrefix: "Physically engaging with objects requires capabilities such as Dexterous Manipulation, Force Control, and Assembly Task execution." },
+             "Navigation & Mapping": { labels: ["Path Planning", "Global Localization", "Topological Maps", "Grid Maps", "Exploration Algorithms", "Multi-Agent Path Finding", "Semantic Mapping"], infoPrefix: "Movement:", sentencePrefix: "Moving effectively through environments depends on techniques like Path Planning, Global Localization, and various Mapping strategies." },
+             "Computer Vision": { labels: ["Image Segmentation", "Pose Estimation", "Scene Understanding", "3D Reconstruction", "Optical Flow", "Feature Detection", "Video Analysis"], infoPrefix: "Seeing:", sentencePrefix: "Interpreting visual input often involves Computer Vision techniques such as Image Segmentation, Pose Estimation, and Scene Understanding." },
+             "Natural Language Processing": { labels: ["Language Models (LLMs)", "Sentiment Analysis", "Machine Translation", "Question Answering", "Text Summarization", "Named Entity Recognition", "Embeddings"], infoPrefix: "Language:", sentencePrefix: "Grounding communication often involves Natural Language Processing methods like Language Models (LLMs), Sentiment Analysis, and Machine Translation." },
+             "Knowledge Representation": { labels: ["Ontologies", "Knowledge Graphs", "Logical Inference", "Semantic Web", "Rule-Based Systems", "Description Logics", "Common Sense Reasoning"], infoPrefix: "Knowledge:", sentencePrefix: "Structuring world knowledge utilizes methods such as Ontologies, Knowledge Graphs, and Logical Inference." },
+             "Optimization Methods": { labels: ["Gradient-Based Opt.", "Evolutionary Algorithms", "Bayesian Optimization", "Convex Optimization", "Integer Programming", "Search Algorithms (A*, BFS)"], infoPrefix: "Optimizing:", sentencePrefix: "Finding optimal solutions or sequences often involves Optimization Methods like Gradient-Based Optimization, Evolutionary Algorithms, and Search Algorithms." },
+             "Simulation & Modeling": { labels: ["Physics Engines", "Digital Twins", "System Identification", "Agent-Based Modeling", "Finite Element Analysis", "Sim-to-Real Transfer"], infoPrefix: "Modeling:", sentencePrefix: "Anticipating system behavior and consequences often uses Simulation & Modeling tools like Physics Engines, Digital Twins, and System Identification." },
+             "Cognitive Architectures": { labels: ["SOAR", "ACT-R", "Connectionism", "Symbolic Systems", "Hybrid Architectures", "Developmental Robotics", "Modular Architectures"], infoPrefix: "Mind Models:", sentencePrefix: "Integrating diverse cognitive capabilities often relies on Cognitive Architectures such as SOAR, ACT-R, and Hybrid Systems." },
+             "Neuroscience Inspiration": { labels: ["Spiking Neural Nets", "Hebbian Learning", "Hippocampal Models", "Cortical Columns", "Neural Plasticity", "Motor Cortex Models"], infoPrefix: "Brain-Inspired:", sentencePrefix: "Drawing inspiration from biology involves studying mechanisms like Spiking Neural Networks, Hebbian Learning, and Neural Plasticity." },
+             "Philosophy of Mind": { labels: ["Consciousness", "Qualia", "Intentionality", "Free Will", "Mind-Body Problem", "Embodied Mind Thesis", "Extended Mind"], infoPrefix: "Mind Concepts:", sentencePrefix: "Exploring fundamental questions about mind and agency involves concepts like Consciousness, Intentionality, and the Mind-Body Problem." },
+             "Ethics & Safety": { labels: ["AI Alignment", "Value Learning", "Bias Detection", "Fairness Metrics", "Robustness", "Interpretability", "Accountability"], infoPrefix: "Safety:", sentencePrefix: "Ensuring safe, reliable, and ethical AI behavior involves addressing areas like AI Alignment, Value Learning, Bias Detection, and Robustness." },
+             "Multi-Agent Systems": { labels: ["Coordination", "Cooperation", "Competition", "Swarm Intelligence", "Distributed Control", "Negotiation"], infoPrefix: "Groups:", sentencePrefix: "Coordinating multiple interacting agents requires techniques for Coordination, Cooperation, Competition, and Swarm Intelligence." },
+             "Probabilistic Methods": { labels: ["Bayesian Networks", "Kalman Filters", "Particle Filters", "Gaussian Processes", "Markov Models (HMMs)", "Probabilistic Programming"], infoPrefix: "Uncertainty:", sentencePrefix: "Handling uncertainty and noisy data often involves Probabilistic Methods like Bayesian Networks, Kalman Filters, and Markov Models." },
+             "Geometric Methods": { labels: ["Lie Groups (SE3)", "Manifold Learning", "Computational Geometry", "Topology", "Differential Geometry", "Configuration Space"], infoPrefix: "Geometry:", sentencePrefix: "Reasoning about spatial relationships, configurations, and transformations often uses Geometric Methods including Lie Groups, Manifold Learning, and Computational Geometry." },
+             "Information Theory": { labels: ["Entropy", "Mutual Information", "KL Divergence", "Compression", "Channel Capacity", "Coding Theory"], infoPrefix: "Information:", sentencePrefix: "Quantifying information, uncertainty, and communication efficiency uses concepts from Information Theory such as Entropy, Mutual Information, and KL Divergence." },
+             "Control Theory": { labels: ["Linear Control", "Nonlinear Control", "Adaptive Control", "Optimal Control", "Robust Control", "Stochastic Control"], infoPrefix: "Dynamics:", sentencePrefix: "Achieving stable and desired system behavior often requires principles from Control Theory, including Linear Control, Adaptive Control, and Optimal Control." },
+             "Hardware & Sensors": { labels: ["LIDAR", "IMU", "Cameras", "Force Sensors", "Encoders", "Microcontrollers", "FPGAs", "GPUs"], infoPrefix: "Hardware:", sentencePrefix: "The physical interface for robotic systems includes Hardware & Sensors like LIDAR, IMUs, Cameras, and processing units such as GPUs." },
+             "Data Structures & Algo": { labels: ["Graphs", "Trees", "Hash Tables", "Sorting", "Dynamic Programming", "Complexity Theory"], infoPrefix: "Computation:", sentencePrefix: "Efficient computation and data management relies on fundamental Data Structures & Algorithms like Graphs, Trees, Sorting, and Dynamic Programming." },
+             "Quantum Computing": { labels: ["Qubits", "Superposition", "Entanglement", "Quantum Gates", "Quantum Algorithms", "Quantum ML"], infoPrefix: "Quantum:", sentencePrefix: "Exploring future computational paradigms involves understanding Quantum Computing concepts such as Qubits, Superposition, Entanglement, and Quantum Algorithms." },
+             "Biologically Plausible Learning": { labels: ["Synaptic Plasticity", "Neuromodulation", "Homeostasis", "Local Learning Rules", "Spike-Timing-Dependent Plasticity (STDP)"], infoPrefix: "Bio Learning:", sentencePrefix: "Developing learning mechanisms inspired by biology involves exploring concepts like Synaptic Plasticity, Neuromodulation, and Spike-Timing-Dependent Plasticity (STDP)." },
+             "Developmental AI": { labels: ["Intrinsic Motivation", "Curiosity-Driven Learning", "Sensorimotor Stages", "Affordance Learning", "Skill Acquisition"], infoPrefix: "Growth:", sentencePrefix: "Acquiring skills progressively, akin to natural development, involves concepts like Intrinsic Motivation, Curiosity-Driven Learning, and Sensorimotor Stages." },
+             "Causality": { labels: ["Causal Inference", "Structural Causal Models", "Do-Calculus", "Counterfactuals", "Intervention"], infoPrefix: "Cause/Effect:", sentencePrefix: "Understanding cause-and-effect relationships and action outcomes requires reasoning about Causality using tools like Causal Inference, Structural Causal Models, and Counterfactuals." },
+             "Theory of Computation": { labels: ["Turing Machines", "Computability", "Complexity Classes (P vs NP)", "Automata Theory", "Formal Languages"], infoPrefix: "Computation Theory:", sentencePrefix: "Understanding the fundamental limits and capabilities of computation relates to the Theory of Computation, including concepts like Turing Machines, Computability, and Complexity Classes." },
+              "Cybernetics": { labels: ["Feedback Loops", "Control Systems", "Communication Theory", "Self-Regulation", "Homeostasis (biological)"], infoPrefix: "Systems:", sentencePrefix: "Understanding systems that maintain stability and achieve goals through feedback involves principles of Cybernetics, such as Feedback Loops, Control Systems, and Self-Regulation." },
+              "Spacecraft Operations": { labels: ["Asteroid Navigation", "Orbital Docking", "Deep Space Probe", "Fleet Coordination", "Emergency Maneuvers", "Resource Scanning", "Interstellar Travel", "Lander Control"], infoPrefix: "Space Ops:", sentencePrefix: "Autonomous control in space involves complex tasks like Asteroid Navigation, Orbital Docking, Deep Space Probe management, and Lander Control." },
+              "Human Intuition": { labels: ["Gut Feeling", "Implicit Learning", "Heuristics", "Expert Judgment", "Analogical Reasoning", "Emotional Intelligence"], infoPrefix: "Human Intuition:", sentencePrefix: "Understanding human cognition involves exploring phenomena like Gut Feelings, Implicit Learning, Heuristics, and Expert Judgment." },
+              "Machine Intuition": { labels: ["Emergent Behavior", "Subsymbolic Reasoning", "Latent Representations", "Policy Gradients (RL)", "Generative Models", "Few-Shot Adaptation"], infoPrefix: "Machine Intuition:", sentencePrefix: "Developing AI capable of intuitive-like responses involves fostering Emergent Behavior, Subsymbolic Reasoning, and leveraging Latent Representations from models like Policy Gradients and Generative Models." },
+             // Team category is defined but not used for concepts now
+             // "Team": { labels: [], infoPrefix: "Team:", sentencePrefix: "Defining the collaborative structure and goals." }
          };
-        const clusterCenters = {};
-        const conceptClusterCenters = [];
 
-        // Populate conceptNodesData
-        for (const categoryName in categories) {
-            const category = categories[categoryName];
-            const [bx, by, bz] = category.base;
-            const centerPoint = new THREE.Vector3(bx, by, bz);
-            clusterCenters[categoryName] = centerPoint;
-             if (categoryName !== "Team") conceptClusterCenters.push(centerPoint);
-             if (categoryName === "Team") continue;
-            category.labels.forEach(label => {
-                const info = `${category.infoPrefix} ${label}. Part of ${categoryName.toLowerCase().replace('/', ' and ')}.`;
-                const sentence = `${category.sentencePrefix} ${label.toLowerCase()}.`;
-                const originalConceptColor = conceptColorPalette[conceptColorIndex % conceptColorPalette.length];
-                conceptColorIndex++;
-                conceptNodesData.push({ type: 'concept', spawnPosition: randomPosition(bx, by, bz, conceptNodeSpread), label: label, category: categoryName, clusterCenter: centerPoint, info: info, originalColorHex: originalConceptColor, sentence: sentence });
-            });
-        }
-
-        // Paper Node Definitions
+        // --- Input Data ---
+        const teamMembersInput = [
+            { name: "Eloi Alonso", url: "https://eloialonso.github.io/" },
+            { name: "Adam Jelley", url: "https://adamjelley.github.io/" },
+            { name: "Vincent Micheli", url: "https://vmicheli.github.io/" },
+            { name: "Pim de Witte", url: "https://pimdewitte.com/" },
+            { name: "Fredrik Noren", url: "https://www.linkedin.com/in/fredrik-noren/" },
+            { name: "Florian Laurent", url: "https://masterscrat.github.io/" },
+            { name: "Karthick Jeyapal", url: "https://www.linkedin.com/in/karthick-jeyapal-a9a4a524/" }
+        ];
         const existingPapersInput = [ /* ... paper data ... */
             { name: "JARVIS-VLA", url: "https://x.com/_akhaliq/status/1903155708457013610?s=12&t=TGTk_lVC4Ugrh9Op2GBFbQ", category: "Human-Robot Interaction", fullName: "JARVIS-VLA: A Generalist Vision-Language-Action Model for Robotic Control" },
             { name: "Gemma3", url: "https://storage.googleapis.com/deepmind-media/gemma/Gemma3Report.pdf", category: "Natural Language Processing", fullName: "Gemma3 Technical Report" },
@@ -467,37 +450,105 @@
         ];
         const allPapersInput = [...existingPapersInput, ...newPapersInput];
 
-        // Populate paperNodesData
-        allPapersInput.forEach(paper => {
-            const targetCenter = clusterCenters[paper.category];
-            if (targetCenter) {
-                paperNodesData.push({ type: 'paper', spawnPosition: randomPosition(targetCenter.x, targetCenter.y, targetCenter.z, paperNodeSpread), label: paper.name, category: paper.category, clusterCenter: targetCenter, info: paper.fullName, originalColorHex: paperNodeColor, url: paper.url });
-            } else { console.warn(`Category "${paper.category}" not found for paper "${paper.name}". Skipping node.`); }
+        // --- Processed Node Data ---
+        const paperNodesData = [];
+        const teamNodesData = [];
+        const conceptNodesData = []; // Filtered concepts
+        const paperPositions = []; // To store paper positions for team targeting
+        const paperNodeMap = new Map(); // Map category to list of papers in that category
+
+        // 1. Process Papers: Determine positions and group by category
+        const numPapers = allPapersInput.length;
+        const radius = paperNodeSpreadRadius;
+        allPapersInput.forEach((paper, i) => {
+            // Calculate position using spherical distribution (Fibonacci lattice/Golden Angle)
+            const phi = Math.acos(-1 + (2 * i) / numPapers); // Angle from +Y axis
+            const theta = Math.sqrt(numPapers * Math.PI) * phi; // Angle around Y axis
+
+            const x = radius * Math.sin(phi) * Math.cos(theta);
+            const y = radius * Math.cos(phi);
+            const z = radius * Math.sin(phi) * Math.sin(theta);
+            const paperPos = new THREE.Vector3(x, y, z);
+
+            const paperData = {
+                type: 'paper',
+                spawnPosition: paperPos.clone(),
+                label: paper.name,
+                category: paper.category,
+                clusterCenter: paperPos.clone(), // Paper is its own cluster center now
+                info: paper.fullName,
+                originalColorHex: paperNodeColor,
+                url: paper.url
+            };
+            paperNodesData.push(paperData);
+            paperPositions.push(paperPos.clone()); // Store position for team targeting
+
+            // Group papers by category for concept placement
+            if (!paperNodeMap.has(paper.category)) {
+                paperNodeMap.set(paper.category, []);
+            }
+            paperNodeMap.get(paper.category).push(paperData); // Store the whole data object
         });
 
-        // --- Team Member Definitions ---
-        const teamMembersInput = [
-            { name: "Eloi Alonso", url: "https://eloialonso.github.io/" },
-            { name: "Adam Jelley", url: "https://adamjelley.github.io/" },
-            { name: "Vincent Micheli", url: "https://vmicheli.github.io/" },
-            { name: "Pim de Witte", url: "https://pimdewitte.com/" },
-            { name: "Fredrik Noren", url: "https://www.linkedin.com/in/fredrik-noren/" },
-            { name: "Florian Laurent", url: "https://masterscrat.github.io/" },
-            { name: "Karthick Jeyapal", url: "https://www.linkedin.com/in/karthick-jeyapal-a9a4a524/" }
-        ];
+        // 2. Identify Used Categories and Filter/Place Concepts
+        const usedCategories = new Set(allPapersInput.map(p => p.category));
+        for (const categoryName in categories) {
+            if (usedCategories.has(categoryName)) {
+                const category = categories[categoryName];
+                const papersInCategory = paperNodeMap.get(categoryName);
 
-        // Populate teamNodesData
-        const teamSpawnCenter = clusterCenters["Team"];
-        if (teamSpawnCenter) {
-            teamMembersInput.forEach(member => {
-                const initialTargetIndex = Math.floor(Math.random() * conceptClusterCenters.length);
-                const initialTarget = conceptClusterCenters[initialTargetIndex];
-                teamNodesData.push({ type: 'team', spawnPosition: randomPosition(teamSpawnCenter.x, teamSpawnCenter.y, teamSpawnCenter.z, teamNodeSpread), label: member.name, category: "Team", clusterCenter: teamSpawnCenter, info: member.name, originalColorHex: teamNodeColor, url: member.url, targetClusterCenter: initialTarget.clone(), isMovingToTarget: true, pauseEndTime: 0 });
+                if (papersInCategory && papersInCategory.length > 0) {
+                    category.labels.forEach(label => {
+                        // Find the first paper in this category to attach the concept to
+                        const anchorPaper = papersInCategory[0];
+                        const anchorPos = anchorPaper.spawnPosition;
+
+                        const info = `${category.infoPrefix} ${label}. Part of ${categoryName.toLowerCase().replace('/', ' and ')}.`;
+                        const sentence = `${category.sentencePrefix} ${label.toLowerCase()}.`;
+                        const originalConceptColor = conceptColorPalette[conceptColorIndex % conceptColorPalette.length];
+                        conceptColorIndex++;
+
+                        conceptNodesData.push({
+                            type: 'concept',
+                            // Spawn near the anchor paper
+                            spawnPosition: randomPosition(anchorPos.x, anchorPos.y, anchorPos.z, conceptNodeSpread),
+                            label: label,
+                            category: categoryName,
+                            clusterCenter: anchorPos.clone(), // Associate with the paper's position
+                            info: info,
+                            originalColorHex: originalConceptColor,
+                            sentence: sentence
+                        });
+                    });
+                }
+            }
+        }
+
+        // 3. Process Team Nodes
+        const teamSpawnCenter = new THREE.Vector3(0, 0, 0); // Spawn team near origin
+        teamMembersInput.forEach(member => {
+            // Pick a random paper position as the initial target
+            const initialTargetIndex = Math.floor(Math.random() * paperPositions.length);
+            const initialTarget = paperPositions[initialTargetIndex] || teamSpawnCenter; // Fallback to origin if no papers
+
+            teamNodesData.push({
+                type: 'team',
+                spawnPosition: randomPosition(teamSpawnCenter.x, teamSpawnCenter.y, teamSpawnCenter.z, teamNodeSpread),
+                label: member.name,
+                category: "Team",
+                clusterCenter: teamSpawnCenter.clone(), // Team's conceptual center is origin
+                info: member.name,
+                originalColorHex: teamNodeColor,
+                url: member.url,
+                targetClusterCenter: initialTarget.clone(), // Target a paper position
+                isMovingToTarget: true,
+                pauseEndTime: 0
             });
-        } else { console.warn("Team category center not found. Cannot place team nodes."); }
+        });
+
 
         // Combine all node data
-        const allNodesData = [...conceptNodesData, ...paperNodesData, ...teamNodesData];
+        const allNodesData = [...paperNodesData, ...conceptNodesData, ...teamNodesData];
 
         // --- Three.js Setup Variables & DOM Refs ---
         let scene, camera, renderer, controls;
@@ -505,7 +556,7 @@
         let nodes = []; // All node meshes
         let teamNodes = []; // Just the team node meshes
         let otherNodes = []; // Concept and paper node meshes
-        let clusterLines = []; // Lines connecting cluster centers
+        // let clusterLines = []; // REMOVED Cluster lines
         let stars; // Starfield points object
         let intersectedObject = null; // Currently hovered/targeted node
         let animationFrameId = null; // ID for cancelling animation loop
@@ -565,7 +616,7 @@
 
             // Camera setup
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 50;
+            camera.position.z = 50; // Start further back due to spherical distribution
 
             // Renderer setup
             renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
@@ -599,50 +650,59 @@
             raycaster.params.Line.threshold = 1.0;
 
             // --- Create Nodes ---
+            // Geometries are shared
             const conceptGeometry = new THREE.SphereGeometry(conceptNodeSize, 16, 8);
             const paperGeometry = new THREE.SphereGeometry(paperNodeSize, 12, 6);
             const teamGeometry = new THREE.SphereGeometry(teamNodeSize, 14, 7);
 
+            // Create Meshes from processed data
             allNodesData.forEach(data => {
                 let geometry; let initialColor; let nodeMesh;
                 switch (data.type) {
-                    case 'paper': geometry = paperGeometry; initialColor = defaultSpaceColor; break;
-                    case 'team': geometry = teamGeometry; initialColor = teamNodeColor; break;
-                    case 'concept': default: geometry = conceptGeometry; initialColor = defaultSpaceColor; break;
+                    case 'paper':
+                        geometry = paperGeometry;
+                        initialColor = defaultSpaceColor; // Papers start gray until activated
+                        break;
+                    case 'team':
+                        geometry = teamGeometry;
+                        initialColor = teamNodeColor; // Team nodes start with their color
+                        break;
+                    case 'concept':
+                    default: // Default to concept
+                        geometry = conceptGeometry;
+                        initialColor = defaultSpaceColor; // Concepts start gray until activated
+                        break;
                 }
                 const material = new THREE.MeshLambertMaterial({ color: initialColor });
                 nodeMesh = new THREE.Mesh(geometry, material);
-                nodeMesh.position.copy(data.spawnPosition);
+                nodeMesh.position.copy(data.spawnPosition); // Use pre-calculated spawn position
                 nodeMesh.userData = {
-                    ...data, baseScale: 1.0, animOffset: Math.random() * Math.PI * 2,
-                    originalColor: new THREE.Color(data.originalColorHex),
-                    spaceColor: new THREE.Color(defaultSpaceColor),
-                    targetColor: new THREE.Color(initialColor), isNode: true,
-                    spawnPosition: data.spawnPosition.clone(),
+                    ...data, // Copy processed data (label, url, category, clusterCenter etc.)
+                    baseScale: 1.0, // Base scale for animations
+                    animOffset: Math.random() * Math.PI * 2, // Random offset for animations
+                    originalColor: new THREE.Color(data.originalColorHex), // Store original color as THREE.Color
+                    spaceColor: new THREE.Color(defaultSpaceColor), // Store inactive color
+                    targetColor: new THREE.Color(initialColor), // Current target color for lerping
+                    isNode: true, // Flag to identify these objects as interactable nodes
+                    // spawnPosition is already included from data spread
                 };
+
+                // Add reference to the actual mesh object back into the data array
+                // This is useful if we need the mesh later when processing data (e.g., finding a paper mesh by category)
+                data.mesh = nodeMesh;
+
                 scene.add(nodeMesh);
-                nodes.push(nodeMesh);
-                if (data.type === 'team') teamNodes.push(nodeMesh); else otherNodes.push(nodeMesh);
+                nodes.push(nodeMesh); // Add to the list of all nodes
+
+                // Categorize for easier looping later
+                if (data.type === 'team') {
+                    teamNodes.push(nodeMesh);
+                } else {
+                    otherNodes.push(nodeMesh); // Concepts and Papers
+                }
             });
 
-            // --- Create Cluster Connection Lines ---
-            const lineMaterialInactive = new THREE.LineBasicMaterial({
-                color: lineDefaultColor, transparent: true, opacity: lineDefaultOpacity, depthWrite: false
-            });
-            for (let i = 0; i < conceptClusterCenters.length; i++) {
-                for (let j = i + 1; j < conceptClusterCenters.length; j++) {
-                    const points = [conceptClusterCenters[i], conceptClusterCenters[j]];
-                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                    const lineMaterial = lineMaterialInactive.clone();
-                    const line = new THREE.Line(geometry, lineMaterial);
-                    line.userData = {
-                         startPoint: conceptClusterCenters[i], endPoint: conceptClusterCenters[j],
-                         targetOpacity: lineDefaultOpacity, targetColor: new THREE.Color(lineDefaultColor)
-                     };
-                    scene.add(line);
-                    clusterLines.push(line);
-                }
-            }
+            // --- REMOVED Cluster Connection Lines ---
 
             // --- Create Starfield ---
             const starVertices = [];
@@ -847,32 +907,25 @@
          }
 
         // --- Core Logic: Intersection Checks ---
-        // Uses screen-space check for mobile, raycaster for desktop
+        // Uses screen-space check (closest to edge) for mobile, raycaster for desktop
         function checkIntersections() {
             let newIntersectedObject = null; // Node that becomes the intersectedObject
 
             if (isMobile) {
                 // --- Mobile: Screen-Space Check (Closest to Edge) ---
                 const reticleRadiusPixels = 96 / 2; // From CSS width/height (use radius)
-                // Calculate radius in NDC (Normalized Device Coordinates, -1 to +1)
                 const reticleRadiusNDC = reticleRadiusPixels / (window.innerHeight / 2);
-                const reticleRadiusNDCSq = reticleRadiusNDC * reticleRadiusNDC; // Use squared distance
+                const reticleRadiusNDCSq = reticleRadiusNDC * reticleRadiusNDC;
 
                 let bestNode = null;
-                // Initialize minimum distance to edge as slightly larger than the radius itself
-                // This ensures we only consider nodes whose centers are *within* the radius,
-                // and among those, we find the one closest to the edge.
-                let minDistToEdge = reticleRadiusNDC + 0.01;
+                let minDistToEdge = reticleRadiusNDC + 0.01; // Find node closest to edge
 
-                const center = new THREE.Vector2(0, 0); // Screen center in NDC is (0,0)
                 const nodeWorldPos = new THREE.Vector3(); // Reuse vector for performance
                 const nodeScreenPos = new THREE.Vector3(); // Reuse vector for performance
 
                 nodes.forEach(node => {
                     node.getWorldPosition(nodeWorldPos); // Get world position
-
-                    // Project node center to screen space (NDC)
-                    nodeScreenPos.copy(nodeWorldPos).project(camera);
+                    nodeScreenPos.copy(nodeWorldPos).project(camera); // Project to screen space (NDC)
 
                     // Basic check: Is the node roughly within the viewport and in front of the camera?
                     if (nodeScreenPos.z > -1 && nodeScreenPos.z < 1 &&
@@ -942,9 +995,6 @@
             const now = Date.now();
 
             // Update controls (handles damping, user input)
-            // IMPORTANT: Call controls.update() BEFORE reading camera position/target
-            // if those values are used later in the frame, to ensure they reflect
-            // any changes made by user input or damping.
             controls.update();
 
             checkIntersections(); // Update intersected object and reticle style
@@ -953,7 +1003,7 @@
             if (stars) { stars.rotation.y += delta * 0.01; stars.rotation.x += delta * 0.005; }
 
             const cameraPosition = camera.position; // Read camera position AFTER controls.update()
-            const pausedClusterCenters = new Map();
+            const pausedPaperTargets = new Map(); // Track how many probes are paused at each paper node
 
             // --- Team Node Update Loop ---
             teamNodes.forEach(teamNode => {
@@ -965,29 +1015,41 @@
                 if (!isSelected) {
                     // Only move if not selected
                     if (!teamData.isMovingToTarget) {
-                        // Node is PAUSED
-                        const centerKey = teamData.targetClusterCenter.toArray().toString();
-                        pausedClusterCenters.set(centerKey, (pausedClusterCenters.get(centerKey) || 0) + 1);
+                        // Node is PAUSED (at a paper node position)
+                        const targetKey = teamData.targetClusterCenter.toArray().toString(); // Use paper position as key
+                        pausedPaperTargets.set(targetKey, (pausedPaperTargets.get(targetKey) || 0) + 1);
 
                         // Check if pause duration is over
                         if (now > teamData.pauseEndTime) {
                             // *** Check selection state before resuming ***
-                            if (!isSelected) { // Double check here, though outer check should suffice
-                                // Select a new, different target cluster
+                            if (!isSelected) {
+                                // Select a new, different target paper position
                                 let newTargetIndex;
-                                let currentTargetIndex = conceptClusterCenters.findIndex(center => vectorsAreEqual(center, teamData.targetClusterCenter));
-                                do {
-                                    newTargetIndex = Math.floor(Math.random() * conceptClusterCenters.length);
-                                } while (newTargetIndex === currentTargetIndex && conceptClusterCenters.length > 1);
-                                teamData.targetClusterCenter.copy(conceptClusterCenters[newTargetIndex]);
-                                teamData.isMovingToTarget = true; // Start moving again
+                                let currentTargetIndex = paperPositions.findIndex(pos => vectorsAreEqual(pos, teamData.targetClusterCenter));
+                                if (paperPositions.length > 1) {
+                                    do {
+                                        newTargetIndex = Math.floor(Math.random() * paperPositions.length);
+                                    } while (newTargetIndex === currentTargetIndex);
+                                } else {
+                                    newTargetIndex = 0; // Only one paper, target it again
+                                }
+
+                                if (paperPositions[newTargetIndex]) {
+                                     teamData.targetClusterCenter.copy(paperPositions[newTargetIndex]);
+                                     teamData.isMovingToTarget = true; // Start moving again
+                                } else {
+                                    // Fallback if something went wrong finding paper positions
+                                    teamData.isMovingToTarget = false;
+                                    teamData.pauseEndTime = now + teamPauseDuration; // Stay paused
+                                }
+
                             } else {
                                 // If selected when pause ends, reset the timer to stay paused
                                 teamData.pauseEndTime = now + teamPauseDuration;
                             }
                         }
                     } else {
-                        // Node is MOVING
+                        // Node is MOVING towards a paper position
                         const distanceToTarget = teamNode.position.distanceTo(teamData.targetClusterCenter);
                         if (distanceToTarget <= teamTargetReachedThreshold) {
                             teamData.isMovingToTarget = false;
@@ -1030,32 +1092,13 @@
             });
 
 
-            // --- Cluster Line Activation Logic --- (Unchanged)
-             clusterLines.forEach(line => {
-                 const lineData = line.userData;
-                 let pausedProbesAtEnds = 0;
-                 const startKey = lineData.startPoint.toArray().toString();
-                 const endKey = lineData.endPoint.toArray().toString();
-                 pausedProbesAtEnds += pausedClusterCenters.get(startKey) || 0;
-                 pausedProbesAtEnds += pausedClusterCenters.get(endKey) || 0;
-                 let targetOpacity;
-                 if (!lineData.targetColor) lineData.targetColor = new THREE.Color();
-                 if (pausedProbesAtEnds > 0) {
-                     targetOpacity = Math.min(lineMaxActiveOpacity, lineDefaultOpacity + lineOpacityIncreasePerProbe * pausedProbesAtEnds);
-                     lineData.targetColor.setHex(lineActiveColor);
-                 } else {
-                     targetOpacity = lineDefaultOpacity;
-                     lineData.targetColor.setHex(lineDefaultColor);
-                 }
-                 lineData.targetOpacity = targetOpacity;
-                 line.material.opacity = THREE.MathUtils.lerp(line.material.opacity, lineData.targetOpacity, lineTransitionSpeed);
-                 line.material.color.lerp(lineData.targetColor, lineTransitionSpeed);
-             });
+            // --- REMOVED Cluster Line Activation Logic ---
 
 
             // --- Proximity Color Change & Other Node Updates (Concepts & Papers) ---
             const activatedNodes = new Set();
             teamNodes.forEach(teamNode => {
+                 // Check proximity against papers and concepts
                  otherNodes.forEach(otherNode => {
                       if (teamNode.position.distanceTo(otherNode.position) < proximityThreshold) {
                           activatedNodes.add(otherNode);
@@ -1063,12 +1106,13 @@
                  });
             });
 
-            otherNodes.forEach(node => {
+            otherNodes.forEach(node => { // Includes papers and filtered concepts
                 const nodeData = node.userData;
                 let isSelected = (node === nodeBeingClicked); // Check if this node is selected
                 let targetScale = nodeData.baseScale || 1.0;
-                let finalTargetColor = nodeData.spaceColor.clone();
+                let finalTargetColor = nodeData.spaceColor.clone(); // Start gray
 
+                // Activate color if near a team node
                 if (activatedNodes.has(node)) {
                     finalTargetColor = nodeData.originalColor.clone();
                 }
@@ -1082,12 +1126,14 @@
                         Math.cos(elapsed * nodeMoveFreq * 1.2 + nodeData.animOffset) * nodeMoveAmplitude,
                         Math.sin(elapsed * nodeMoveFreq + nodeData.animOffset * 0.5) * nodeMoveAmplitude
                     );
-                    const targetPosition = nodeData.spawnPosition.clone().add(moveOffset);
+                    // Wiggle around spawn position for papers, or clusterCenter (paper position) for concepts
+                    const anchorPos = nodeData.spawnPosition; // All nodes now have a fixed spawn position
+                    const targetPosition = anchorPos.clone().add(moveOffset);
                     node.position.lerp(targetPosition, nodeLerpFactor);
                 }
 
                 // --- Node Scaling & Color (Applied even if selected/paused) ---
-                const animAmp = baseAnimAmpConcept;
+                const animAmp = (nodeData.type === 'concept') ? baseAnimAmpConcept : baseAnimAmpPaperTeam;
                 const oscillation = Math.sin(elapsed * baseAnimFreq + nodeData.animOffset) * animAmp;
                 targetScale += oscillation;
                 const distance = cameraPosition.distanceTo(node.position);
@@ -1097,11 +1143,14 @@
 
                 // Click Effect (if selected)
                 if (isSelected) {
-                    finalTargetColor = new THREE.Color(clickHighlightColor); // Click color overrides others
+                    // Use specific click color only for concepts, otherwise just pulse
+                    finalTargetColor = (nodeData.type === 'concept') ? new THREE.Color(clickHighlightColor) : nodeData.originalColor.clone();
+
                     let clickScale = 1.0;
                     if (now < clickEffectStartTime + clickEffectDuration) {
                         const progress = (now - clickEffectStartTime) / clickEffectDuration;
-                        clickScale = 1.0 + Math.sin(progress * Math.PI) * 0.5; // Pulse effect
+                        const pulseFactor = (nodeData.type === 'concept') ? 0.5 : 0.3; // Bigger pulse for concepts
+                        clickScale = 1.0 + Math.sin(progress * Math.PI) * pulseFactor;
                     } else {
                          // Reset click state ONLY if not a concept node (concept node reset is handled by overlay close)
                          if (nodeData.type !== 'concept') {
@@ -1113,8 +1162,10 @@
                 // Hover Effect (if not selected, but hovered)
                 else if (node === intersectedObject) {
                     targetScale = 1.3; // Enlarge on hover/target
+                    // Apply specific highlight color based on type (overrides proximity color)
                     if (nodeData.type === 'concept') finalTargetColor = new THREE.Color(highlightColor);
                     else if (nodeData.type === 'paper') finalTargetColor = new THREE.Color(paperHighlightColor);
+                    // Team node highlighting is handled in their own loop
                 }
 
                 node.material.color.lerp(finalTargetColor, colorLerpFactor);
