@@ -331,8 +331,6 @@
         const wordAppendDelay = 20; // Delay between appending words
         const numSignalDots = 5; // Dots in the signal wave animation
 
-        // REMOVED Mobile Camera Nudge Param (was mobileNudgeLerpFactor)
-
         // Concept Color Palette (for proximity activation)
         const conceptColorPalette = [
             0x4a90e2, 0xbd10e0, 0xaaaaaa, 0x7ed321, 0xf5a623, 0x50e3c2, 0xe04457,
@@ -703,13 +701,17 @@
 
         // --- Event Handlers ---
         function onWindowResize() {
+             // Update camera aspect ratio and projection matrix
              camera.aspect = window.innerWidth / window.innerHeight;
              camera.updateProjectionMatrix();
+             // Resize renderer
              renderer.setSize(window.innerWidth, window.innerHeight);
+             // Re-check mobile status as window size might change device type perception
              detectMobile();
          }
 
         function onMouseMove(event) {
+             // Update mouse coordinates only if on desktop (mobile uses reticle)
              if (!isMobile) {
                  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
                  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -795,6 +797,8 @@
              animationControl.isCancelled = true; clearTimeout(animationControl.timeoutId);
              animationOverlay.style.display = 'none';
              mainVisualizationDiv.style.display = 'block';
+             // *** ADDED: Call onWindowResize after making div visible ***
+             onWindowResize();
              // Reset click state when overlay closes
              nodeBeingClicked = null;
              startAnimationLoop();
@@ -808,7 +812,10 @@
          }
 
         function hideDisclaimerOverlay() {
-            disclaimerOverlay.style.display = 'none'; mainVisualizationDiv.style.display = 'block';
+            disclaimerOverlay.style.display = 'none';
+            mainVisualizationDiv.style.display = 'block';
+            // *** ADDED: Call onWindowResize after making div visible ***
+            onWindowResize();
             // Reset click state if disclaimer is closed
             nodeBeingClicked = null;
             startAnimationLoop();
@@ -845,34 +852,51 @@
             let newIntersectedObject = null; // Node that becomes the intersectedObject
 
             if (isMobile) {
-                // --- Mobile: Screen-Space Check ---
-                const reticleRadiusPixels = 96 / 2;
+                // --- Mobile: Screen-Space Check (Closest to Edge) ---
+                const reticleRadiusPixels = 96 / 2; // From CSS width/height (use radius)
+                // Calculate radius in NDC (Normalized Device Coordinates, -1 to +1)
                 const reticleRadiusNDC = reticleRadiusPixels / (window.innerHeight / 2);
-                const reticleRadiusNDCSq = reticleRadiusNDC * reticleRadiusNDC;
+                const reticleRadiusNDCSq = reticleRadiusNDC * reticleRadiusNDC; // Use squared distance
 
-                let closestNode = null;
-                let minScreenDistSq = reticleRadiusNDCSq;
+                let bestNode = null;
+                // Initialize minimum distance to edge as slightly larger than the radius itself
+                // This ensures we only consider nodes whose centers are *within* the radius,
+                // and among those, we find the one closest to the edge.
+                let minDistToEdge = reticleRadiusNDC + 0.01;
 
-                const center = new THREE.Vector2(0, 0);
-                const nodeWorldPos = new THREE.Vector3();
-                const nodeScreenPos = new THREE.Vector3();
+                const center = new THREE.Vector2(0, 0); // Screen center in NDC is (0,0)
+                const nodeWorldPos = new THREE.Vector3(); // Reuse vector for performance
+                const nodeScreenPos = new THREE.Vector3(); // Reuse vector for performance
 
                 nodes.forEach(node => {
-                    node.getWorldPosition(nodeWorldPos);
+                    node.getWorldPosition(nodeWorldPos); // Get world position
+
+                    // Project node center to screen space (NDC)
                     nodeScreenPos.copy(nodeWorldPos).project(camera);
 
+                    // Basic check: Is the node roughly within the viewport and in front of the camera?
                     if (nodeScreenPos.z > -1 && nodeScreenPos.z < 1 &&
-                        nodeScreenPos.x > -1.1 && nodeScreenPos.x < 1.1 &&
+                        nodeScreenPos.x > -1.1 && nodeScreenPos.x < 1.1 && // Allow slight margin
                         nodeScreenPos.y > -1.1 && nodeScreenPos.y < 1.1)
                     {
+                        // Calculate distance squared from screen center (0,0) to the node's projected (x,y)
                         const screenDistSq = nodeScreenPos.x * nodeScreenPos.x + nodeScreenPos.y * nodeScreenPos.y;
-                        if (screenDistSq < minScreenDistSq) {
-                            minScreenDistSq = screenDistSq;
-                            closestNode = node;
+
+                        // Check if node center is within the reticle radius squared
+                        if (screenDistSq < reticleRadiusNDCSq) {
+                             const screenDist = Math.sqrt(screenDistSq);
+                             // Calculate how close the node's center is to the edge of the circle
+                             const distToEdge = Math.abs(screenDist - reticleRadiusNDC);
+
+                             // If this node is closer to the edge than the current best, select it
+                             if (distToEdge < minDistToEdge) {
+                                 minDistToEdge = distToEdge;
+                                 bestNode = node;
+                             }
                         }
                     }
                 });
-                newIntersectedObject = closestNode;
+                newIntersectedObject = bestNode; // The node whose center is closest to the reticle edge
 
             } else {
                 // --- Desktop: Raycaster Check ---
@@ -917,12 +941,10 @@
             const elapsed = clock.getElapsedTime();
             const now = Date.now();
 
-            // --- REMOVED Mobile Camera Nudge ---
-            // if (isMobile && intersectedObject && !nodeBeingClicked) {
-            //     controls.target.lerp(intersectedObject.position, mobileNudgeLerpFactor);
-            // }
-
             // Update controls (handles damping, user input)
+            // IMPORTANT: Call controls.update() BEFORE reading camera position/target
+            // if those values are used later in the frame, to ensure they reflect
+            // any changes made by user input or damping.
             controls.update();
 
             checkIntersections(); // Update intersected object and reticle style
@@ -930,7 +952,7 @@
             // Rotate starfield
             if (stars) { stars.rotation.y += delta * 0.01; stars.rotation.x += delta * 0.005; }
 
-            const cameraPosition = camera.position;
+            const cameraPosition = camera.position; // Read camera position AFTER controls.update()
             const pausedClusterCenters = new Map();
 
             // --- Team Node Update Loop ---
