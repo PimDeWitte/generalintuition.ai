@@ -66,6 +66,35 @@
             padding: 6px 12px;
             text-align: center;
         }
+        /* --- Mobile Reticle --- */
+        #mobile-reticle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 24px; /* Size of the target */
+            height: 24px; /* Size of the target */
+            border: 2px solid rgba(255, 255, 255, 0.6); /* White, semi-transparent */
+            border-radius: 50%;
+            pointer-events: none; /* Doesn't interfere with other interactions */
+            display: none; /* Hidden by default, shown via JS for mobile */
+            z-index: 50; /* Above canvas, below overlays */
+            box-sizing: border-box;
+        }
+        /* Style for the inner dot of the reticle */
+         #mobile-reticle::after {
+             content: '';
+             position: absolute;
+             top: 50%;
+             left: 50%;
+             transform: translate(-50%, -50%);
+             width: 4px;
+             height: 4px;
+             background-color: rgba(255, 255, 255, 0.6);
+             border-radius: 50%;
+         }
+
+
         #instructions a {
             color: #0ff;
             text-decoration: none;
@@ -171,8 +200,10 @@
 <body class="font-sans">
     <div id="main-visualization">
         <div id="info-box"><h3 id="info-label">...</h3><p id="info-description">...</p></div>
+        <div id="mobile-reticle"></div>
         <div id="instructions">
-            Click & Drag: Rotate | Scroll: Zoom | Hover: Inspect
+             <span id="desktop-instructions">Click & Drag: Rotate | Scroll: Zoom | Hover: Inspect</span>
+             <span id="mobile-instructions" style="display: none;">Drag: Rotate | Pinch: Zoom | Center Reticle: Inspect</span>
             <a id="show-disclaimer-link" href="#">About / Info</a>
         </div>
         <canvas id="representation-canvas"></canvas>
@@ -199,7 +230,7 @@
             <h2>General Intuition</h2>
 
             <ul id="team-list">
-                
+
             </ul>
 
             <a href="mailto:careers@generalintuition.ai" class="email-link">careers@generalintuition.ai</a>
@@ -216,7 +247,7 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        // --- Configuration (Node sizes/fog from V4.1, Raycaster threshold from V4.2) ---
+        // --- Configuration ---
         const conceptNodeSize = 0.7;
         const paperNodeSize = 0.55;
         const teamNodeSize = 0.6;
@@ -248,15 +279,16 @@
         const proximityThreshold = 5.0;
         const colorLerpFactor = 0.08;
 
-        // Cluster Line Params (Unchanged)
+        // Cluster Line Params
         const lineDefaultColor = 0x444444;
         const lineDefaultOpacity = 0.1;
-        const lineActiveColor = 0x00ffff;
+        // *** MODIFIED: Changed active line color to white ***
+        const lineActiveColor = 0xffffff;
         const lineMaxActiveOpacity = 0.35;
         const lineOpacityIncreasePerProbe = 0.06;
         const lineTransitionSpeed = 0.1;
 
-        // Background Params (Fog from V4.1)
+        // Background Params
         const backgroundColor = 0x020210;
         const fogColor = backgroundColor;
         const fogNear = 80;
@@ -271,19 +303,19 @@
         const distanceScaleFactor = 15.0;
         const maxDistanceScaleBonus = 0.4;
 
-        // Faster Animation Timings (Unchanged)
+        // Faster Animation Timings
         const layerPassDuration = 240;
         const wordSelectionDuration = 90;
         const wordAppendDelay = 20;
         const numSignalDots = 5;
 
-        // Concept Color Palette (Unchanged)
+        // Concept Color Palette
         const conceptColorPalette = [
             0x4a90e2, 0xbd10e0, 0xaaaaaa, 0x7ed321, 0xf5a623, 0x50e3c2, 0xe04457,
         ];
         let conceptColorIndex = 0;
 
-        // --- Helper Functions (Unchanged) ---
+        // --- Helper Functions ---
         function randomPosition(baseX, baseY, baseZ, spread) {
             return new THREE.Vector3(
                 baseX + (Math.random() * spread - spread / 2),
@@ -298,7 +330,7 @@
         }
 
 
-        // --- Node Data (Unchanged definitions) ---
+        // --- Node Data ---
         const conceptNodesData = [];
         const paperNodesData = [];
         const teamNodesData = [];
@@ -344,7 +376,7 @@
         const clusterCenters = {};
         const conceptClusterCenters = [];
 
-        // Populate conceptNodesData (Unchanged logic)
+        // Populate conceptNodesData
         for (const categoryName in categories) {
             const category = categories[categoryName];
             const [bx, by, bz] = category.base;
@@ -361,7 +393,7 @@
             });
         }
 
-        // Paper Node Definitions (Unchanged)
+        // Paper Node Definitions
         const existingPapersInput = [ /* ... paper data ... */
             { name: "JARVIS-VLA", url: "https://x.com/_akhaliq/status/1903155708457013610?s=12&t=TGTk_lVC4Ugrh9Op2GBFbQ", category: "Human-Robot Interaction", fullName: "JARVIS-VLA: A Generalist Vision-Language-Action Model for Robotic Control" },
             { name: "Gemma3", url: "https://storage.googleapis.com/deepmind-media/gemma/Gemma3Report.pdf", category: "Natural Language Processing", fullName: "Gemma3 Technical Report" },
@@ -414,7 +446,7 @@
         ];
         const allPapersInput = [...existingPapersInput, ...newPapersInput];
 
-        // Populate paperNodesData (Unchanged logic)
+        // Populate paperNodesData
         allPapersInput.forEach(paper => {
             const targetCenter = clusterCenters[paper.category];
             if (targetCenter) {
@@ -422,7 +454,7 @@
             } else { console.warn(`Category "${paper.category}" not found for paper "${paper.name}". Skipping node.`); }
         });
 
-        // --- Team Member Definitions (Unchanged) ---
+        // --- Team Member Definitions ---
         const teamMembersInput = [
             { name: "Eloi Alonso", url: "https://eloialonso.github.io/" },
             { name: "Adam Jelley", url: "https://adamjelley.github.io/" },
@@ -433,7 +465,7 @@
             { name: "Karthick Jeyapal", url: "https://www.linkedin.com/in/karthick-jeyapal-a9a4a524/" }
         ];
 
-        // Populate teamNodesData (Unchanged logic)
+        // Populate teamNodesData
         const teamSpawnCenter = clusterCenters["Team"];
         if (teamSpawnCenter) {
             teamMembersInput.forEach(member => {
@@ -459,7 +491,9 @@
         let nodeBeingClicked = null;
         let clickEffectStartTime = 0;
         const clock = new THREE.Clock();
-        // DOM References (Unchanged)
+        // *** ADDED: Mobile detection flag ***
+        let isMobile = false;
+        // DOM References
         const infoBox = document.getElementById('info-box');
         const infoLabel = document.getElementById('info-label');
         const infoDescription = document.getElementById('info-description');
@@ -478,9 +512,39 @@
         const showDisclaimerLink = document.getElementById('show-disclaimer-link');
         const closeDisclaimerOverlayBtn = document.getElementById('close-disclaimer-overlay-btn');
         const teamListUl = document.getElementById('team-list');
+        // *** ADDED: Mobile reticle and instruction text refs ***
+        const mobileReticle = document.getElementById('mobile-reticle');
+        const desktopInstructions = document.getElementById('desktop-instructions');
+        const mobileInstructions = document.getElementById('mobile-instructions');
 
-        // --- Initialization (Raycaster threshold from V4.2) ---
+
+        // *** ADDED: Mobile detection logic ***
+        function detectMobile() {
+            // Simple check: combination of screen width and touch capability
+            isMobile = window.innerWidth <= 768 && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+
+            // Show/hide the reticle and appropriate instructions based on detection
+            if (mobileReticle) {
+                 mobileReticle.style.display = isMobile ? 'block' : 'none';
+            }
+             if (desktopInstructions && mobileInstructions) {
+                 desktopInstructions.style.display = isMobile ? 'none' : 'inline';
+                 mobileInstructions.style.display = isMobile ? 'inline' : 'none';
+             }
+             // Update controls based on mobile status
+             if (controls) {
+                 controls.enablePan = !isMobile; // Disable panning on mobile maybe? Or keep it? User preference.
+                 // OrbitControls often handles touch reasonably well, but you might
+                 // want to adjust sensitivity or behavior for mobile here.
+             }
+        }
+
+
+        // --- Initialization ---
         function init() {
+            // *** ADDED: Initial mobile detection ***
+            detectMobile();
+
             scene = new THREE.Scene();
             scene.background = new THREE.Color(backgroundColor);
             scene.fog = new THREE.Fog(fogColor, fogNear, fogFar);
@@ -501,22 +565,22 @@
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
-            controls.screenSpacePanning = false;
+            controls.screenSpacePanning = false; // Keep false for typical orbit behaviour
             controls.minDistance = 10;
             controls.maxDistance = 120;
 
             raycaster = new THREE.Raycaster();
             mouse = new THREE.Vector2();
 
-            // Adjust raycaster threshold (from V4.2)
-            raycaster.params.Points.threshold = 1.5;
+            // *** MODIFIED: Increased threshold slightly for easier center selection ***
+            raycaster.params.Points.threshold = 2.0;
 
             // Use node sizes from V4.1
             const conceptGeometry = new THREE.SphereGeometry(conceptNodeSize, 16, 8);
             const paperGeometry = new THREE.SphereGeometry(paperNodeSize, 12, 6);
             const teamGeometry = new THREE.SphereGeometry(teamNodeSize, 14, 7);
 
-            // Create Nodes (Unchanged logic)
+            // Create Nodes
             allNodesData.forEach(data => {
                 let geometry; let initialColor; let nodeMesh;
                 switch (data.type) {
@@ -542,7 +606,7 @@
                 if (data.type === 'team') teamNodes.push(nodeMesh); else otherNodes.push(nodeMesh);
             });
 
-            // Create Cluster Connection Lines (Unchanged logic)
+            // Create Cluster Connection Lines
             const lineMaterialInactive = new THREE.LineBasicMaterial({ color: lineDefaultColor, transparent: true, opacity: lineDefaultOpacity, depthWrite: false });
             for (let i = 0; i < conceptClusterCenters.length; i++) {
                 for (let j = i + 1; j < conceptClusterCenters.length; j++) {
@@ -550,13 +614,19 @@
                     const geometry = new THREE.BufferGeometry().setFromPoints(points);
                     const lineMaterial = lineMaterialInactive.clone();
                     const line = new THREE.Line(geometry, lineMaterial);
-                    line.userData = { startPoint: conceptClusterCenters[i], endPoint: conceptClusterCenters[j], targetOpacity: lineDefaultOpacity, targetColor: new THREE.Color(lineDefaultColor) };
+                    // Ensure targetColor is initialized correctly
+                    line.userData = {
+                         startPoint: conceptClusterCenters[i],
+                         endPoint: conceptClusterCenters[j],
+                         targetOpacity: lineDefaultOpacity,
+                         targetColor: new THREE.Color(lineDefaultColor) // Initialize with default color object
+                     };
                     scene.add(line);
                     clusterLines.push(line);
                 }
             }
 
-            // Create Starfield (Unchanged logic)
+            // Create Starfield
             const starVertices = [];
             for (let i = 0; i < starCount; i++) {
                 const x = THREE.MathUtils.randFloatSpread(starSphereRadius * 2);
@@ -579,7 +649,7 @@
             stars = new THREE.Points(starGeometry, starMaterial);
             scene.add(stars);
 
-            // Populate Team List in Disclaimer Modal (Unchanged logic)
+            // Populate Team List in Disclaimer Modal
             teamListUl.innerHTML = '';
             teamMembersInput.forEach(member => {
                 const li = document.createElement('li'); const a = document.createElement('a');
@@ -588,7 +658,7 @@
                 li.appendChild(a); teamListUl.appendChild(li);
             });
 
-            // Create signal dot elements (Unchanged logic)
+            // Create signal dot elements
             signalWaveContainer.innerHTML = '';
             for (let i = 0; i < numSignalDots; i++) {
                 const dot = document.createElement('div'); dot.classList.add('signal-dot-item');
@@ -597,41 +667,91 @@
                 signalWaveContainer.appendChild(dot);
             }
 
-            // Event Listeners (Unchanged logic)
+            // Event Listeners
             window.addEventListener('resize', onWindowResize, false);
+            // Only track mouse move if not on mobile for hover effects
             window.addEventListener('mousemove', onMouseMove, false);
             canvas.addEventListener('click', onCanvasClick, false);
+             // Add touch listener for mobile interaction if needed, though OrbitControls handles basic touch drag/pinch
+             // canvas.addEventListener('touchstart', onTouchStart, false); // Example if needed
+
             closeAnimationOverlayBtn.addEventListener('click', hideAnimationOverlay, false);
             showDisclaimerLink.addEventListener('click', showDisclaimerOverlay, false);
             closeDisclaimerOverlayBtn.addEventListener('click', hideDisclaimerOverlay, false);
-            // Removed event listener for #lab-links as they no longer exist
 
             startAnimationLoop();
         }
 
-        // --- Animation Loop Control (Unchanged) ---
+        // --- Animation Loop Control ---
         function startAnimationLoop() { if (!animationFrameId) { animate(); } }
         function stopAnimationLoop() { if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; } }
 
-        // --- Event Handlers (Unchanged) ---
-        function onWindowResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
-        function onMouseMove(event) { mouse.x = (event.clientX / window.innerWidth) * 2 - 1; mouse.y = -(event.clientY / window.innerHeight) * 2 + 1; }
+        // --- Event Handlers ---
+        function onWindowResize() {
+             camera.aspect = window.innerWidth / window.innerHeight;
+             camera.updateProjectionMatrix();
+             renderer.setSize(window.innerWidth, window.innerHeight);
+             // *** ADDED: Re-check mobile status on resize ***
+             detectMobile();
+         }
+
+        function onMouseMove(event) {
+             // Only update mouse coordinates if not in mobile mode (where hover is less relevant)
+             if (!isMobile) {
+                 mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                 mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+             }
+         }
+
+         // *** MODIFIED: Handle click based on mobile/desktop ***
         function onCanvasClick(event) {
             if (animationOverlay.style.display === 'flex' || nodeBeingClicked || disclaimerOverlay.style.display === 'flex') return;
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1; mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(nodes);
-            if (intersects.length > 0 && intersects[0].object.userData.isNode) {
-                const clickedNodeObject = intersects[0].object; const nodeData = clickedNodeObject.userData;
-                if ((nodeData.type === 'paper' || nodeData.type === 'team') && nodeData.url) { window.open(nodeData.url, '_blank'); }
-                else if (nodeData.type === 'concept' && nodeData.sentence) {
-                    nodeBeingClicked = clickedNodeObject; clickEffectStartTime = Date.now();
-                    setTimeout(() => { if (nodeBeingClicked === clickedNodeObject) showAnimationOverlay(nodeData.label, nodeData.sentence); }, transitionDelay);
+
+            let clickedNodeObject = null;
+
+            if (isMobile) {
+                // On mobile, the "click" targets whatever the center reticle is currently intersecting
+                // This object is stored in `intersectedObject` by the continuous `checkIntersections`
+                clickedNodeObject = intersectedObject;
+            } else {
+                // On desktop, use the actual mouse click position
+                // Ensure mouse coordinates are updated (redundant if onMouseMove fired, but safe)
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(nodes);
+                if (intersects.length > 0 && intersects[0].object.userData.isNode) {
+                    clickedNodeObject = intersects[0].object;
+                }
+            }
+
+            // Perform action if a node was determined to be clicked (either by center reticle or mouse)
+            if (clickedNodeObject) {
+                const nodeData = clickedNodeObject.userData;
+                if ((nodeData.type === 'paper' || nodeData.type === 'team') && nodeData.url) {
+                    window.open(nodeData.url, '_blank');
+                } else if (nodeData.type === 'concept' && nodeData.sentence) {
+                    // Ensure we don't re-trigger if already animating/clicked
+                    if(nodeBeingClicked !== clickedNodeObject) {
+                        nodeBeingClicked = clickedNodeObject;
+                        clickEffectStartTime = Date.now();
+                        // Trigger visual click effect immediately if desired
+                        // node.scale logic in animate() will handle the visual pulse
+
+                        // Delay showing overlay slightly
+                        setTimeout(() => {
+                            // Check if the clicked node is still the one intended after delay
+                            if (nodeBeingClicked === clickedNodeObject) {
+                                showAnimationOverlay(nodeData.label, nodeData.sentence);
+                            }
+                        }, transitionDelay);
+                    }
                 }
             }
         }
 
-        // --- Overlay Controls (Unchanged) ---
+
+        // --- Overlay Controls ---
         let animationControl = { timeoutId: null, wordIndex: 0, words: [], isCancelled: false };
         function showAnimationOverlay(label, sentence) {
             if (disclaimerOverlay.style.display === 'flex') return; stopAnimationLoop(); mainVisualizationDiv.style.display = 'none';
@@ -643,7 +763,8 @@
          }
         function hideAnimationOverlay() {
              animationControl.isCancelled = true; clearTimeout(animationControl.timeoutId); animationOverlay.style.display = 'none'; mainVisualizationDiv.style.display = 'block';
-             nodeBeingClicked = null; startAnimationLoop();
+             nodeBeingClicked = null; // Reset clicked state when closing
+             startAnimationLoop();
          }
         function showDisclaimerOverlay(event) {
             event.preventDefault(); if (animationOverlay.style.display === 'flex') return; stopAnimationLoop(); mainVisualizationDiv.style.display = 'none'; disclaimerOverlay.style.display = 'flex';
@@ -652,7 +773,7 @@
             disclaimerOverlay.style.display = 'none'; mainVisualizationDiv.style.display = 'block'; startAnimationLoop();
          }
 
-        // --- FASTER LLM Animation Step (Unchanged) ---
+        // --- FASTER LLM Animation Step ---
         async function animateLLMStep() {
              if (animationControl.isCancelled) return;
              if (animationControl.wordIndex >= animationControl.words.length) {
@@ -677,34 +798,57 @@
              animationControl.wordIndex++; if (!animationControl.isCancelled) animationControl.timeoutId = setTimeout(animateLLMStep, wordAppendDelay);
          }
 
-        // --- Core Logic: Intersection Checks (Unchanged) ---
+        // --- Core Logic: Intersection Checks ---
+        // *** MODIFIED: Use center screen or mouse based on mobile status ***
         function checkIntersections() {
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(nodes);
-            let newIntersectedObject = null; if (intersects.length > 0 && intersects[0].object.userData.isNode) newIntersectedObject = intersects[0].object;
+            let raycastOrigin;
+            if (isMobile) {
+                // On mobile, always raycast from the center of the screen
+                raycastOrigin = new THREE.Vector2(0, 0);
+            } else {
+                // On desktop, use the current mouse position
+                raycastOrigin = mouse;
+            }
+
+            raycaster.setFromCamera(raycastOrigin, camera);
+            const intersects = raycaster.intersectObjects(nodes); // Check intersection with all nodes
+
+            let newIntersectedObject = null;
+            if (intersects.length > 0 && intersects[0].object.userData.isNode) {
+                newIntersectedObject = intersects[0].object;
+            }
+
+            // Update info box only if the intersected object changes
             if (intersectedObject !== newIntersectedObject) {
-                intersectedObject = newIntersectedObject;
+                intersectedObject = newIntersectedObject; // Update the globally tracked intersected object
+
                 if (intersectedObject) {
                     const data = intersectedObject.userData;
-                    infoLabel.textContent = data.label; infoDescription.textContent = data.info;
-                    infoBox.className = 'hover-' + data.type;
+                    infoLabel.textContent = data.label;
+                    infoDescription.textContent = data.info;
+                    // Update info box style based on node type
+                    infoBox.className = 'hover-' + data.type; // Removes old classes, adds new one
                     infoBox.style.display = 'block';
                 } else {
-                    infoBox.style.display = 'none'; infoBox.className = '';
+                    // No intersection, hide the info box
+                    infoBox.style.display = 'none';
+                    infoBox.className = ''; // Clear specific hover styles
                 }
             }
-         }
+        }
 
 
-        // --- Main Animation Loop (Unchanged logic) ---
+        // --- Main Animation Loop ---
         function animate() {
             animationFrameId = requestAnimationFrame(animate);
             const delta = clock.getDelta();
             const elapsed = clock.getElapsedTime();
             const now = Date.now();
 
-            controls.update();
-            checkIntersections();
+            controls.update(); // Update camera controls (rotation, zoom)
+
+            // *** checkIntersections is called continuously to update `intersectedObject` ***
+            checkIntersections(); // Determine which node is currently under the cursor/reticle
 
             // Rotate starfield
             if (stars) {
@@ -715,7 +859,7 @@
             const cameraPosition = camera.position;
             const pausedClusterCenters = new Map();
 
-            // Team Node Movement & Pause Logic (Unchanged)
+            // Team Node Movement & Pause Logic
             teamNodes.forEach(teamNode => {
                 const teamData = teamNode.userData;
                 if (!teamData.isMovingToTarget) {
@@ -734,64 +878,88 @@
                         teamNode.position.copy(teamData.targetClusterCenter);
                     }
                 }
-                // Team Node Scaling (Unchanged)
+                // Team Node Scaling
                 const teamOscillation = Math.sin(elapsed * baseAnimFreq * 1.1 + teamData.animOffset) * baseAnimAmpPaperTeam;
                 let teamTargetScale = teamData.baseScale + teamOscillation;
                 const teamDistance = cameraPosition.distanceTo(teamNode.position); const teamDistanceFactor = Math.max(0, 1.0 - teamDistance / distanceScaleFactor);
                 const teamDistanceBonus = maxDistanceScaleBonus * teamDistanceFactor * teamDistanceFactor; teamTargetScale *= (1.0 + teamDistanceBonus);
+                // *** Highlight based on `intersectedObject` ***
                 if (teamNode === intersectedObject) teamTargetScale = 1.3;
                 teamNode.scale.lerp(new THREE.Vector3(teamTargetScale, teamTargetScale, teamTargetScale), 0.1);
             });
 
-            // Cluster Line Activation Logic (Unchanged)
-            clusterLines.forEach(line => {
-                const lineData = line.userData;
-                let pausedProbesAtEnds = 0;
-                const startKey = lineData.startPoint.toArray().toString(); const endKey = lineData.endPoint.toArray().toString();
-                pausedProbesAtEnds += pausedClusterCenters.get(startKey) || 0; pausedProbesAtEnds += pausedClusterCenters.get(endKey) || 0;
+            // Cluster Line Activation Logic
+             clusterLines.forEach(line => {
+                 const lineData = line.userData;
+                 let pausedProbesAtEnds = 0;
+                 const startKey = lineData.startPoint.toArray().toString();
+                 const endKey = lineData.endPoint.toArray().toString();
+                 pausedProbesAtEnds += pausedClusterCenters.get(startKey) || 0;
+                 pausedProbesAtEnds += pausedClusterCenters.get(endKey) || 0;
 
-                let targetOpacity;
-                if (pausedProbesAtEnds > 0) {
-                    targetOpacity = Math.min(lineMaxActiveOpacity, lineDefaultOpacity + lineOpacityIncreasePerProbe * pausedProbesAtEnds);
-                    lineData.targetColor.set(lineActiveColor);
-                } else {
-                    targetOpacity = lineDefaultOpacity;
-                    lineData.targetColor.set(lineDefaultColor);
-                }
-                lineData.targetOpacity = targetOpacity;
+                 let targetOpacity;
+                 // Ensure targetColor is a Color object before setting/lerping
+                 if (!lineData.targetColor) lineData.targetColor = new THREE.Color();
 
-                line.material.opacity = THREE.MathUtils.lerp(line.material.opacity, lineData.targetOpacity, lineTransitionSpeed);
-                line.material.color.lerp(lineData.targetColor, lineTransitionSpeed);
-            });
+                 if (pausedProbesAtEnds > 0) {
+                     targetOpacity = Math.min(lineMaxActiveOpacity, lineDefaultOpacity + lineOpacityIncreasePerProbe * pausedProbesAtEnds);
+                     // *** Use the modified lineActiveColor (white) ***
+                     lineData.targetColor.setHex(lineActiveColor);
+                 } else {
+                     targetOpacity = lineDefaultOpacity;
+                     lineData.targetColor.setHex(lineDefaultColor);
+                 }
+                 lineData.targetOpacity = targetOpacity;
 
-            // Proximity Color Change & Other Node Updates (Unchanged logic)
+                 line.material.opacity = THREE.MathUtils.lerp(line.material.opacity, lineData.targetOpacity, lineTransitionSpeed);
+                 line.material.color.lerp(lineData.targetColor, lineTransitionSpeed);
+             });
+
+
+            // Proximity Color Change & Other Node Updates
             const activatedNodes = new Set();
             teamNodes.forEach(teamNode => { otherNodes.forEach(otherNode => { if (teamNode.position.distanceTo(otherNode.position) < proximityThreshold) activatedNodes.add(otherNode); }); });
 
             otherNodes.forEach(node => {
-                const nodeData = node.userData; let targetScale = nodeData.baseScale || 1.0; let isClickEffectActive = false; let finalTargetColor = nodeData.spaceColor;
+                const nodeData = node.userData; let targetScale = nodeData.baseScale || 1.0; let isClickEffectActive = false; let finalTargetColor = nodeData.spaceColor.clone(); // Start with space color
 
-                if (activatedNodes.has(node)) finalTargetColor = nodeData.originalColor;
+                if (activatedNodes.has(node)) finalTargetColor = nodeData.originalColor.clone(); // Use original if activated by proximity
 
+                // Node Movement
                 const moveOffset = new THREE.Vector3( Math.sin(elapsed * nodeMoveFreq * 0.8 + nodeData.animOffset) * nodeMoveAmplitude, Math.cos(elapsed * nodeMoveFreq * 1.2 + nodeData.animOffset) * nodeMoveAmplitude, Math.sin(elapsed * nodeMoveFreq + nodeData.animOffset * 0.5) * nodeMoveAmplitude );
                 const targetPosition = nodeData.spawnPosition.clone().add(moveOffset); node.position.lerp(targetPosition, nodeLerpFactor);
 
+                // Base Oscillation & Distance Scaling
                 const animAmp = baseAnimAmpConcept; const oscillation = Math.sin(elapsed * baseAnimFreq + nodeData.animOffset) * animAmp; targetScale += oscillation;
                 const distance = cameraPosition.distanceTo(node.position); const distanceFactor = Math.max(0, 1.0 - distance / distanceScaleFactor); const distanceBonus = maxDistanceScaleBonus * distanceFactor * distanceFactor; targetScale *= (1.0 + distanceBonus);
 
+                // Click Effect (visual pulse)
                 if (node === nodeBeingClicked && nodeData.type === 'concept') {
-                    finalTargetColor = new THREE.Color(clickHighlightColor); isClickEffectActive = true; let clickScale = 1.0;
-                    if (now < clickEffectStartTime + clickEffectDuration) { const progress = (now - clickEffectStartTime) / clickEffectDuration; clickScale = 1.0 + Math.sin(progress * Math.PI) * 0.5; }
-                    else { if(animationOverlay.style.display !== 'flex') nodeBeingClicked = null; }
-                    targetScale = clickScale;
+                    finalTargetColor = new THREE.Color(clickHighlightColor); // Override color during click pulse
+                    isClickEffectActive = true; let clickScale = 1.0;
+                    if (now < clickEffectStartTime + clickEffectDuration) {
+                        const progress = (now - clickEffectStartTime) / clickEffectDuration;
+                        clickScale = 1.0 + Math.sin(progress * Math.PI) * 0.5; // Pulse effect
+                    } else {
+                        // Reset click state only if overlay isn't showing
+                        if(animationOverlay.style.display !== 'flex') {
+                             nodeBeingClicked = null;
+                        }
+                        // Scale returns to normal after effect duration unless highlighted
+                    }
+                    targetScale = clickScale; // Apply click pulse scale
                 }
 
+                // Hover Effect (based on intersectedObject updated by checkIntersections)
+                // Apply hover effect *after* proximity check and *if not* currently being clicked
                 if (!isClickEffectActive && node === intersectedObject) {
-                    targetScale = 1.3;
+                    targetScale = 1.3; // Enlarge on hover/reticle focus
                     if (nodeData.type === 'concept') finalTargetColor = new THREE.Color(highlightColor);
                     else if (nodeData.type === 'paper') finalTargetColor = new THREE.Color(paperHighlightColor);
+                     // Team nodes are handled separately above, but could be included here too if needed
                 }
 
+                // Apply color and scale changes smoothly
                 node.material.color.lerp(finalTargetColor, colorLerpFactor);
                 node.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
             });
