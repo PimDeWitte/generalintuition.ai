@@ -24,7 +24,8 @@
             -moz-user-select: none; /* Firefox */
             -ms-user-select: none; /* IE/Edge */
             -webkit-user-drag: none; /* Disable dragging */
-            overscroll-behavior-x: none; /* Prevent swipe navigation */
+            /* --- ADDED: Prevent swipe navigation --- */
+            overscroll-behavior-x: none;
         }
         canvas {
             display: block;
@@ -286,7 +287,7 @@
         const numNetworkLayers = 5;
         const clickEffectDuration = 500; // ms for click visual pulse
         const transitionDelay = 300; // ms delay before overlay shows on concept click
-        const conceptNodeSpread = 4; // How far concepts spread around category centroids
+        const conceptNodeSpread = 4; // How far concepts spread around papers (reduced)
         const paperNodeSpreadRadius = 30; // Radius for distributing papers
         const teamNodeSpread = 5; // How far team nodes spread around origin
 
@@ -303,14 +304,6 @@
         // Proximity Color Change Params
         const proximityThreshold = 5.0; // How close a team node needs to be to activate another node
         const colorLerpFactor = 0.08; // Color transition smoothness
-
-        // Cluster Line Params (Re-added)
-        const lineDefaultColor = 0x444444; // Dark gray inactive lines
-        const lineDefaultOpacity = 0.08; // Slightly lower default opacity
-        const lineActiveColor = 0xffffff; // White active lines
-        const lineMaxActiveOpacity = 0.30; // Slightly lower max active opacity
-        const lineOpacityIncreasePerProbe = 0.05; // How much opacity increases per paused team node
-        const lineTransitionSpeed = 0.1; // Line color/opacity smoothness
 
         // Background Params
         const backgroundColor = 0x020210; // Very dark blue/black
@@ -333,9 +326,6 @@
         const wordAppendDelay = 20; // Delay between appending words
         const numSignalDots = 5; // Dots in the signal wave animation
 
-        // Mobile Click Prevention
-        const mobileClickTimeThreshold = 200; // Clicks within this ms of touchstart are ignored
-
         // Concept Color Palette (for proximity activation)
         const conceptColorPalette = [
             0x4a90e2, 0xbd10e0, 0xaaaaaa, 0x7ed321, 0xf5a623, 0x50e3c2, 0xe04457,
@@ -353,8 +343,7 @@
         const genericAlternatives = ["concept", "process", "state"]; // Alternatives for LLM overlay animation
         const delay = ms => new Promise(resolve => setTimeout(resolve, ms)); // Simple async delay
         function vectorsAreEqual(v1, v2, tolerance = 0.01) {
-            // Check if both vectors exist before calculating distance
-            return v1 && v2 && v1.distanceTo(v2) < tolerance;
+            return v1.distanceTo(v2) < tolerance;
         }
 
 
@@ -465,9 +454,8 @@
         const paperNodesData = [];
         const teamNodesData = [];
         const conceptNodesData = []; // Filtered concepts
-        const paperPositions = []; // To store paper positions for team targeting and line drawing
+        const paperPositions = []; // To store paper positions for team targeting
         const paperNodeMap = new Map(); // Map category to list of papers in that category
-        const categoryCentroids = new Map(); // Map category name to centroid position
 
         // 1. Process Papers: Determine positions and group by category
         const numPapers = allPapersInput.length;
@@ -495,31 +483,26 @@
             paperNodesData.push(paperData);
             paperPositions.push(paperPos.clone()); // Store position for team targeting
 
-            // Group papers by category
+            // Group papers by category for concept placement
             if (!paperNodeMap.has(paper.category)) {
                 paperNodeMap.set(paper.category, []);
             }
             paperNodeMap.get(paper.category).push(paperData); // Store the whole data object
         });
 
-        // 2. Calculate Category Centroids
-        paperNodeMap.forEach((papers, categoryName) => {
-            const centroid = new THREE.Vector3(0, 0, 0);
-            papers.forEach(p => centroid.add(p.spawnPosition));
-            centroid.divideScalar(papers.length);
-            categoryCentroids.set(categoryName, centroid);
-        });
-
-
-        // 3. Identify Used Categories and Filter/Place Concepts near Centroids
+        // 2. Identify Used Categories and Filter/Place Concepts
         const usedCategories = new Set(allPapersInput.map(p => p.category));
         for (const categoryName in categories) {
             if (usedCategories.has(categoryName)) {
                 const category = categories[categoryName];
-                const centroid = categoryCentroids.get(categoryName); // Get the calculated centroid
+                const papersInCategory = paperNodeMap.get(categoryName);
 
-                if (centroid) { // Check if centroid exists
+                if (papersInCategory && papersInCategory.length > 0) {
                     category.labels.forEach(label => {
+                        // Find the first paper in this category to attach the concept to
+                        const anchorPaper = papersInCategory[0];
+                        const anchorPos = anchorPaper.spawnPosition;
+
                         const info = `${category.infoPrefix} ${label}. Part of ${categoryName.toLowerCase().replace('/', ' and ')}.`;
                         const sentence = `${category.sentencePrefix} ${label.toLowerCase()}.`;
                         const originalConceptColor = conceptColorPalette[conceptColorIndex % conceptColorPalette.length];
@@ -527,11 +510,11 @@
 
                         conceptNodesData.push({
                             type: 'concept',
-                            // Spawn near the category centroid
-                            spawnPosition: randomPosition(centroid.x, centroid.y, centroid.z, conceptNodeSpread),
+                            // Spawn near the anchor paper
+                            spawnPosition: randomPosition(anchorPos.x, anchorPos.y, anchorPos.z, conceptNodeSpread),
                             label: label,
                             category: categoryName,
-                            clusterCenter: centroid.clone(), // Associate with the category centroid
+                            clusterCenter: anchorPos.clone(), // Associate with the paper's position
                             info: info,
                             originalColorHex: originalConceptColor,
                             sentence: sentence
@@ -541,7 +524,7 @@
             }
         }
 
-        // 4. Process Team Nodes
+        // 3. Process Team Nodes
         const teamSpawnCenter = new THREE.Vector3(0, 0, 0); // Spawn team near origin
         teamMembersInput.forEach(member => {
             // Pick a random paper position as the initial target
@@ -573,7 +556,7 @@
         let nodes = []; // All node meshes
         let teamNodes = []; // Just the team node meshes
         let otherNodes = []; // Concept and paper node meshes
-        let paperConnectionLines = []; // ADDED: Lines connecting papers
+        // let clusterLines = []; // REMOVED Cluster lines
         let stars; // Starfield points object
         let intersectedObject = null; // Currently hovered/targeted node
         let animationFrameId = null; // ID for cancelling animation loop
@@ -581,7 +564,6 @@
         let clickEffectStartTime = 0; // Timestamp for click animation start
         const clock = new THREE.Clock(); // For delta time calculation
         let isMobile = false; // Flag for mobile device detection
-        let lastTouchStartTime = 0; // ADDED: For mobile click prevention
 
         // DOM References
         const infoBox = document.getElementById('info-box');
@@ -677,53 +659,50 @@
             allNodesData.forEach(data => {
                 let geometry; let initialColor; let nodeMesh;
                 switch (data.type) {
-                    case 'paper': geometry = paperGeometry; initialColor = defaultSpaceColor; break;
-                    case 'team': geometry = teamGeometry; initialColor = teamNodeColor; break;
-                    case 'concept': default: geometry = conceptGeometry; initialColor = defaultSpaceColor; break;
+                    case 'paper':
+                        geometry = paperGeometry;
+                        initialColor = defaultSpaceColor; // Papers start gray until activated
+                        break;
+                    case 'team':
+                        geometry = teamGeometry;
+                        initialColor = teamNodeColor; // Team nodes start with their color
+                        break;
+                    case 'concept':
+                    default: // Default to concept
+                        geometry = conceptGeometry;
+                        initialColor = defaultSpaceColor; // Concepts start gray until activated
+                        break;
                 }
                 const material = new THREE.MeshLambertMaterial({ color: initialColor });
                 nodeMesh = new THREE.Mesh(geometry, material);
                 nodeMesh.position.copy(data.spawnPosition); // Use pre-calculated spawn position
                 nodeMesh.userData = {
-                    ...data, baseScale: 1.0, animOffset: Math.random() * Math.PI * 2,
-                    originalColor: new THREE.Color(data.originalColorHex),
-                    spaceColor: new THREE.Color(defaultSpaceColor),
-                    targetColor: new THREE.Color(initialColor), isNode: true,
+                    ...data, // Copy processed data (label, url, category, clusterCenter etc.)
+                    baseScale: 1.0, // Base scale for animations
+                    animOffset: Math.random() * Math.PI * 2, // Random offset for animations
+                    originalColor: new THREE.Color(data.originalColorHex), // Store original color as THREE.Color
+                    spaceColor: new THREE.Color(defaultSpaceColor), // Store inactive color
+                    targetColor: new THREE.Color(initialColor), // Current target color for lerping
+                    isNode: true, // Flag to identify these objects as interactable nodes
+                    // spawnPosition is already included from data spread
                 };
-                data.mesh = nodeMesh; // Store mesh reference back in data
+
+                // Add reference to the actual mesh object back into the data array
+                // This is useful if we need the mesh later when processing data (e.g., finding a paper mesh by category)
+                data.mesh = nodeMesh;
+
                 scene.add(nodeMesh);
                 nodes.push(nodeMesh); // Add to the list of all nodes
-                if (data.type === 'team') { teamNodes.push(nodeMesh); }
-                else { otherNodes.push(nodeMesh); } // Concepts and Papers
+
+                // Categorize for easier looping later
+                if (data.type === 'team') {
+                    teamNodes.push(nodeMesh);
+                } else {
+                    otherNodes.push(nodeMesh); // Concepts and Papers
+                }
             });
 
-            // --- ADDED: Create Paper Connection Lines ---
-            const lineMaterialInactive = new THREE.LineBasicMaterial({
-                color: lineDefaultColor, transparent: true, opacity: lineDefaultOpacity, depthWrite: false
-            });
-            // Connect papers that share the same category (or connect all papers?)
-            // Let's connect all papers within a certain distance for now to reduce clutter
-            const maxLineDistanceSq = 30 * 30; // Max distance squared for connecting papers
-            for (let i = 0; i < paperNodesData.length; i++) {
-                for (let j = i + 1; j < paperNodesData.length; j++) {
-                    const p1 = paperNodesData[i].spawnPosition;
-                    const p2 = paperNodesData[j].spawnPosition;
-                    if (p1.distanceToSquared(p2) < maxLineDistanceSq) {
-                         const points = [p1, p2];
-                         const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                         const lineMaterial = lineMaterialInactive.clone();
-                         const line = new THREE.Line(geometry, lineMaterial);
-                         line.userData = {
-                              startPoint: p1.clone(), // Store positions for activation check
-                              endPoint: p2.clone(),
-                              targetOpacity: lineDefaultOpacity,
-                              targetColor: new THREE.Color(lineDefaultColor)
-                          };
-                         scene.add(line);
-                         paperConnectionLines.push(line);
-                    }
-                }
-            }
+            // --- REMOVED Cluster Connection Lines ---
 
             // --- Create Starfield ---
             const starVertices = [];
@@ -767,15 +746,6 @@
             window.addEventListener('resize', onWindowResize, false);
             window.addEventListener('mousemove', onMouseMove, false);
             canvas.addEventListener('click', onCanvasClick, false);
-            // --- ADDED: Record touch start time for mobile click prevention ---
-            canvas.addEventListener('touchstart', (event) => {
-                if (isMobile) {
-                    // Only record time if it's a new touch sequence (e.g., first finger down)
-                    if (event.touches.length === 1) {
-                         lastTouchStartTime = Date.now();
-                    }
-                }
-            }, { passive: true }); // Use passive: true if not calling preventDefault() inside
             // --- Prevent context menu on canvas (mobile hold) ---
             canvas.addEventListener('contextmenu', (event) => event.preventDefault());
             closeAnimationOverlayBtn.addEventListener('click', hideAnimationOverlay, false);
@@ -809,12 +779,6 @@
          }
 
         function onCanvasClick(event) {
-             // --- ADDED: Mobile Click Prevention ---
-             if (isMobile && (Date.now() - lastTouchStartTime < mobileClickTimeThreshold)) {
-                 // console.log("Mobile click ignored (too fast after touchstart)");
-                 return; // Ignore click if too soon after touchstart
-             }
-
             // Ignore clicks if an overlay is open or a node is already being processed for click
             if (animationOverlay.style.display === 'flex' || nodeBeingClicked || disclaimerOverlay.style.display === 'flex') return;
 
@@ -949,7 +913,7 @@
 
             if (isMobile) {
                 // --- Mobile: Screen-Space Check (Closest to Edge) ---
-                const reticleRadiusPixels = 96 / 2;
+                const reticleRadiusPixels = 96 / 2; // From CSS width/height (use radius)
                 const reticleRadiusNDC = reticleRadiusPixels / (window.innerHeight / 2);
                 const reticleRadiusNDCSq = reticleRadiusNDC * reticleRadiusNDC;
 
@@ -1052,10 +1016,7 @@
                     // Only move if not selected
                     if (!teamData.isMovingToTarget) {
                         // Node is PAUSED (at a paper node position)
-                        // Use the target position vector directly for the map key (requires exact match)
-                        // Alternatively, convert to string, but direct object reference might be okay if vectors aren't cloned elsewhere
-                        const targetKey = teamData.targetClusterCenter; // Use the vector object itself as key (careful!)
-                        // Or safer: const targetKey = teamData.targetClusterCenter.toArray().toString();
+                        const targetKey = teamData.targetClusterCenter.toArray().toString(); // Use paper position as key
                         pausedPaperTargets.set(targetKey, (pausedPaperTargets.get(targetKey) || 0) + 1);
 
                         // Check if pause duration is over
@@ -1131,35 +1092,7 @@
             });
 
 
-            // --- ADDED: Paper Connection Line Activation Logic ---
-             paperConnectionLines.forEach(line => {
-                 const lineData = line.userData;
-                 let pausedProbesAtEnds = 0;
-                 // Check if any team node is paused near either endpoint of this line
-                 pausedPaperTargets.forEach((count, targetPosition) => {
-                      if (vectorsAreEqual(targetPosition, lineData.startPoint) || vectorsAreEqual(targetPosition, lineData.endPoint)) {
-                           pausedProbesAtEnds += count;
-                      }
-                 });
-
-                 let targetOpacity;
-                 if (!lineData.targetColor) lineData.targetColor = new THREE.Color(); // Initialize if needed
-
-                 if (pausedProbesAtEnds > 0) {
-                     // Activate line: White color, increased opacity
-                     targetOpacity = Math.min(lineMaxActiveOpacity, lineDefaultOpacity + lineOpacityIncreasePerProbe * pausedProbesAtEnds);
-                     lineData.targetColor.setHex(lineActiveColor);
-                 } else {
-                     // Deactivate line: Default gray color, default opacity
-                     targetOpacity = lineDefaultOpacity;
-                     lineData.targetColor.setHex(lineDefaultColor);
-                 }
-                 lineData.targetOpacity = targetOpacity; // Store target for lerping
-
-                 // Smoothly transition opacity and color
-                 line.material.opacity = THREE.MathUtils.lerp(line.material.opacity, lineData.targetOpacity, lineTransitionSpeed);
-                 line.material.color.lerp(lineData.targetColor, lineTransitionSpeed);
-             });
+            // --- REMOVED Cluster Line Activation Logic ---
 
 
             // --- Proximity Color Change & Other Node Updates (Concepts & Papers) ---
@@ -1193,8 +1126,8 @@
                         Math.cos(elapsed * nodeMoveFreq * 1.2 + nodeData.animOffset) * nodeMoveAmplitude,
                         Math.sin(elapsed * nodeMoveFreq + nodeData.animOffset * 0.5) * nodeMoveAmplitude
                     );
-                    // Wiggle around spawn position
-                    const anchorPos = nodeData.spawnPosition;
+                    // Wiggle around spawn position for papers, or clusterCenter (paper position) for concepts
+                    const anchorPos = nodeData.spawnPosition; // All nodes now have a fixed spawn position
                     const targetPosition = anchorPos.clone().add(moveOffset);
                     node.position.lerp(targetPosition, nodeLerpFactor);
                 }
