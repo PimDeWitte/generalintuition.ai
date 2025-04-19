@@ -11,14 +11,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
     <style>
-        /* --- Base Styles --- */
+        /* CSS remains largely the same */
         body {
             margin: 0;
             overflow: hidden;
-            /* Darker background */
-            background-color: #050510;
             font-family: 'Inter', sans-serif;
             color: #eee;
+            background-color: #020210; /* Ensure background is set */
         }
         canvas { display: block; }
         #info-box, #instructions {
@@ -33,12 +32,12 @@
         #info-box {
             top: 20px;
             left: 20px;
-            border: 1px solid #0f0;
-            color: #0f0;
+            border: 1px solid #0f0; /* Default highlight */
+            color: #eee; /* Default text color */
             max-width: 320px;
             display: none;
             pointer-events: none;
-            text-shadow: 0 0 3px #0f0;
+            text-shadow: none; /* Remove default text shadow */
         }
         #info-box h3 {
             margin-top: 0;
@@ -47,9 +46,16 @@
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            color: #eee; /* Default header color */
+            text-shadow: none;
         }
-        #info-box h3.paper-title { color: #0ff; text-shadow: 0 0 3px #0ff; }
-        #info-box h3.team-title { color: #ffd700; text-shadow: 0 0 3px #ffd700; }
+        #info-box.hover-concept h3 { color: #0f0; text-shadow: 0 0 3px #0f0; }
+        #info-box.hover-paper h3 { color: #0ff; text-shadow: 0 0 3px #0ff; }
+        #info-box.hover-team h3 { color: #ffd700; text-shadow: 0 0 3px #ffd700; }
+        #info-box.hover-concept { border-color: #0f0; }
+        #info-box.hover-paper { border-color: #0ff; }
+        #info-box.hover-team { border-color: #ffd700; }
+
 
         #instructions {
             bottom: 15px;
@@ -70,7 +76,7 @@
         }
         #instructions a:hover { text-decoration: underline; }
 
-        /* --- Overlay Styles --- */
+        /* --- Overlay Styles (Unchanged) --- */
         #animation-overlay, #disclaimer-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             display: none; justify-content: center; align-items: center;
@@ -108,8 +114,14 @@
         }
         .close-overlay-btn:hover { background-color: #aa0000; }
 
-        /* --- Disclaimer Overlay Styles --- */
-        #disclaimer-content { background-color: rgba(0, 0, 0, 0.6); border: 1px solid #0ff; border-radius: 8px; padding: 25px 35px; max-width: 850px; width: 90%; color: #ccc; font-size: 14px; line-height: 1.8; font-family: 'Inter', sans-serif; }
+        /* --- Disclaimer Overlay Styles (Updated Content Area) --- */
+        #disclaimer-content {
+            background-color: rgba(0, 0, 0, 0.6); border: 1px solid #0ff; border-radius: 8px;
+            padding: 25px 35px; max-width: 650px; /* Adjusted max-width */
+            width: 90%; color: #ccc; font-size: 14px; line-height: 1.8;
+            font-family: 'Inter', sans-serif;
+            text-align: center; /* Center content */
+         }
         #disclaimer-content h2 {
              font-family: 'Press Start 2P', cursive;
             color: #0ff; font-size: 20px; margin-bottom: 25px; text-align: center; text-shadow: 0 0 5px #0ff; letter-spacing: 1px;
@@ -117,10 +129,17 @@
         #disclaimer-content h3 {
             font-family: 'Press Start 2P', cursive;
             color: #eee; font-size: 15px; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px dashed #555; padding-bottom: 8px; letter-spacing: 0.5px;
+            display: inline-block; /* Keep border only under text */
+            width: auto; /* Adjust width */
         }
         #disclaimer-content p, #disclaimer-content li { margin-bottom: 12px; }
         #disclaimer-content strong { color: #fff; font-weight: 700; }
         #disclaimer-content ul { list-style: none; padding-left: 0; margin-left: 0; }
+        #team-list {
+            margin-bottom: 30px; /* Add space below team list */
+            display: inline-block; /* Center the list block */
+            text-align: left; /* Align list items left */
+        }
         #team-list li { margin-bottom: 8px; }
         #team-list li a {
             color: #ffd700;
@@ -129,26 +148,33 @@
             font-size: 14px;
         }
         #team-list li a:hover { text-decoration: underline; color: #fff; }
-
-        #lab-links ul { list-style: none; padding: 0; margin: 20px 0 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 18px; }
-        #lab-links li a {
-            color: #0ff; text-decoration: none; background-color: rgba(0, 255, 255, 0.1); border: 1px solid rgba(0, 255, 255, 0.3); padding: 6px 12px; border-radius: 4px; transition: background-color 0.2s, color 0.2s;
-            font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.3px;
+        /* Style for the email link */
+        #disclaimer-content .email-link {
+            color: #0ff;
+            text-decoration: none;
+            font-size: 14px;
+            margin-top: 15px;
+            display: block; /* Make it block to center easily */
         }
-        #lab-links li a:hover { background-color: rgba(0, 255, 255, 0.3); color: #fff; }
+         #disclaimer-content .email-link:hover {
+            text-decoration: underline;
+            color: #3ff;
+        }
 
-        /* --- Animations --- */
+
+        /* --- Animations (Unchanged) --- */
         @keyframes fadeInLayer { from { opacity: 0; transform: scaleY(0.5); } to { opacity: 1; transform: scaleY(1); } }
         @keyframes nodeClickFlash { 0%, 100% { transform: scale(1.0); } 50% { transform: scale(1.5); } }
         @keyframes fadeHighlight { from { background-color: rgba(0, 255, 0, 0.3); } to { background-color: transparent; } }
     </style>
 </head>
-<body class="font-sans"> <div id="main-visualization">
+<body class="font-sans">
+    <div id="main-visualization">
         <div id="info-box"><h3 id="info-label">...</h3><p id="info-description">...</p></div>
         <div id="instructions">
             Click & Drag: Rotate | Scroll: Zoom | Hover: Inspect
             <a id="show-disclaimer-link" href="#">About / Info</a>
-            </div>
+        </div>
         <canvas id="representation-canvas"></canvas>
     </div>
 
@@ -163,33 +189,21 @@
             <p id="overlay-output"></p>
         </div>
          <div id="overlay-explanation">
-             <a href="mailto:careers@generalintuition.ai">careers@generalintuition.ai</a>
+             {/* Link removed from here as it's now in the disclaimer */}
          </div>
         <button id="close-animation-overlay-btn" class="close-overlay-btn">X</button>
     </div>
 
     <div id="disclaimer-overlay">
          <div id="disclaimer-content">
-            <h2>Welcome to General Intuition</h2>
-            <p>This interactive visualization serves as a conceptual map of the research areas explored at <strong>General Intuition</strong>. We focus on the intersection of <strong>embodied agents, robotics, artificial intelligence, and cognitive science</strong>.</p>
-            <p>The nodes represent key concepts (colored spheres), specific research papers (cyan spheres), and team members (gold spheres). Hover over them to learn more. Click a concept node for an animation, or click a paper/team node to open the corresponding link.</p>
-            <p>Use this visualization as a starting point to understand the themes driving our research. For more detailed information, please explore the links below:</p>
+            <h2>General Intuition</h2>
 
-            <h3>Team</h3>
             <ul id="team-list">
-                </ul>
+                
+            </ul>
 
-            <h3>Explore General Intuition</h3>
-            <div id="lab-links">
-                <ul>
-                    <li><a href="#about">About Us</a></li>
-                    <li><a href="#research">Research Areas</a></li>
-                    <li><a href="#publications">Publications</a></li>
-                    <li><a href="#team">Team</a></li>
-                    <li><a href="#jobs">Jobs / Opportunities</a></li>
-                    <li><a href="#contact">Contact</a></li>
-                 </ul>
-            </div>
+            <a href="mailto:careers@generalintuition.ai" class="email-link">careers@generalintuition.ai</a>
+
         </div>
         <button id="close-disclaimer-overlay-btn" class="close-overlay-btn">X</button>
     </div>
@@ -202,24 +216,53 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        // --- Configuration ---
-        const conceptNodeSize = 0.6;
-        const paperNodeSize = 0.45;
-        const teamNodeSize = 0.5;
-        const paperNodeColor = 0x00ffff; // Cyan
-        const teamNodeColor = 0xffd700; // Gold
+        // --- Configuration (Node sizes/fog from V4.1, Raycaster threshold from V4.2) ---
+        const conceptNodeSize = 0.7;
+        const paperNodeSize = 0.55;
+        const teamNodeSize = 0.6;
+        const paperNodeColor = 0x00ffff;
+        const teamNodeColor = 0xffd700;
         const highlightColor = 0x00ff00;
+        const paperHighlightColor = 0x00ffff;
+        const teamHighlightColor = 0xffd700;
         const clickHighlightColor = 0xffffff;
+        const defaultSpaceColor = 0xcccccc;
         const numNetworkLayers = 5;
         const clickEffectDuration = 500;
         const transitionDelay = 300;
         const conceptNodeSpread = 10;
         const paperNodeSpread = 6;
         const teamNodeSpread = 5;
+
         // Node Movement Params
-        const nodeMoveAmplitude = 0.3; // Max distance node moves from spawn point
-        const nodeMoveFreq = 0.4;    // Speed of node movement oscillation
-        const nodeLerpFactor = 0.02; // Smoothness of movement (lower = smoother)
+        const nodeMoveAmplitude = 0.3;
+        const nodeMoveFreq = 0.4;
+        const nodeLerpFactor = 0.02;
+
+        // Team Probe Movement Params
+        const teamMoveSpeed = 0.008;
+        const teamTargetReachedThreshold = 3.0;
+        const teamPauseDuration = 2500;
+
+        // Proximity Color Change Params
+        const proximityThreshold = 5.0;
+        const colorLerpFactor = 0.08;
+
+        // Cluster Line Params (Unchanged)
+        const lineDefaultColor = 0x444444;
+        const lineDefaultOpacity = 0.1;
+        const lineActiveColor = 0x00ffff;
+        const lineMaxActiveOpacity = 0.35;
+        const lineOpacityIncreasePerProbe = 0.06;
+        const lineTransitionSpeed = 0.1;
+
+        // Background Params (Fog from V4.1)
+        const backgroundColor = 0x020210;
+        const fogColor = backgroundColor;
+        const fogNear = 80;
+        const fogFar = 200;
+        const starCount = 7000;
+        const starSphereRadius = 400;
 
         // Animation Params
         const baseAnimFreq = 0.8;
@@ -228,25 +271,19 @@
         const distanceScaleFactor = 15.0;
         const maxDistanceScaleBonus = 0.4;
 
-        // Faster Animation Timings
+        // Faster Animation Timings (Unchanged)
         const layerPassDuration = 240;
         const wordSelectionDuration = 90;
         const wordAppendDelay = 20;
         const numSignalDots = 5;
 
-        // --- NEW Space-Themed Color Palette for Concepts ---
+        // Concept Color Palette (Unchanged)
         const conceptColorPalette = [
-            0x4a90e2, // Blue
-            0xbd10e0, // Purple
-            0xffffff, // White
-            0x7ed321, // Green (Nebula?)
-            0xf5a623, // Orange (Star?)
-            0x50e3c2, // Teal
-            0xe04457, // Reddish Pink
+            0x4a90e2, 0xbd10e0, 0xaaaaaa, 0x7ed321, 0xf5a623, 0x50e3c2, 0xe04457,
         ];
-        let conceptColorIndex = 0; // To cycle through the palette
+        let conceptColorIndex = 0;
 
-        // --- Helper Functions ---
+        // --- Helper Functions (Unchanged) ---
         function randomPosition(baseX, baseY, baseZ, spread) {
             return new THREE.Vector3(
                 baseX + (Math.random() * spread - spread / 2),
@@ -256,14 +293,18 @@
         }
         const genericAlternatives = ["concept", "process", "state"];
         const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+        function vectorsAreEqual(v1, v2, tolerance = 0.01) {
+            return v1.distanceTo(v2) < tolerance;
+        }
 
-        // --- Node Data ---
+
+        // --- Node Data (Unchanged definitions) ---
         const conceptNodesData = [];
         const paperNodesData = [];
         const teamNodesData = [];
 
+        // Categories (Unchanged)
         const categories = {
-            // Existing categories...
              "Perception": { labels: ["Sensor Fusion", "Proprioception", "Visual Odometry", "SLAM", "Object Recognition", "Depth Sensing", "Tactile Sensing", "Auditory Scene"], base: [25, 25, 0], infoPrefix: "Sensing:", sentencePrefix: "Making sense of the world through" },
             "Action/Control": { labels: ["Reinforcement Learning", "Inverse Kinematics", "PID Control", "Motion Planning", "Grasping", "Locomotion", "Trajectory Optimization", "Imitation Learning"], base: [-25, 25, 0], infoPrefix: "Acting:", sentencePrefix: "Generating physical behavior using" },
             "Cognition/Planning": { labels: ["Task Planning", "World Model", "Predictive Coding", "Affordance Theory", "Symbolic Reasoning", "Goal Setting", "Decision Making", "Memory Systems"], base: [25, -25, 0], infoPrefix: "Thinking:", sentencePrefix: "Formulating plans for interaction involves" },
@@ -295,48 +336,33 @@
             "Causality": { labels: ["Causal Inference", "Structural Causal Models", "Do-Calculus", "Counterfactuals", "Intervention"], base: [0, 30, 0], infoPrefix: "Cause/Effect:", sentencePrefix: "Understanding action outcomes requires reasoning about" },
             "Theory of Computation": { labels: ["Turing Machines", "Computability", "Complexity Classes (P vs NP)", "Automata Theory", "Formal Languages"], base: [0, -30, 0], infoPrefix: "Computation Theory:", sentencePrefix: "Fundamental limits of processing relate to" },
              "Cybernetics": { labels: ["Feedback Loops", "Control Systems", "Communication Theory", "Self-Regulation", "Homeostasis (biological)"], base: [0, 0, 30], infoPrefix: "Systems:", sentencePrefix: "Maintaining stability through interaction uses" },
-             // --- NEW Space Category ---
              "Spacecraft Operations": { labels: ["Asteroid Navigation", "Orbital Docking", "Deep Space Probe", "Fleet Coordination", "Emergency Maneuvers", "Resource Scanning", "Interstellar Travel", "Lander Control"], base: [0, 15, 35], infoPrefix: "Space Ops:", sentencePrefix: "Autonomous control in space involves" },
+             "Human Intuition": { labels: ["Gut Feeling", "Implicit Learning", "Heuristics", "Expert Judgment", "Analogical Reasoning", "Emotional Intelligence"], base: [35, 15, 15], infoPrefix: "Human Intuition:", sentencePrefix: "Exploring human cognition involves understanding" },
+             "Machine Intuition": { labels: ["Emergent Behavior", "Subsymbolic Reasoning", "Latent Representations", "Policy Gradients (RL)", "Generative Models", "Few-Shot Adaptation"], base: [-35, -15, -15], infoPrefix: "Machine Intuition:", sentencePrefix: "Developing AI capable of intuitive-like responses involves" },
              "Team": { labels: [], base: [0, -15, -15], infoPrefix: "Team:", sentencePrefix: "" }
         };
         const clusterCenters = {};
+        const conceptClusterCenters = [];
 
-        // Populate conceptNodesData with new color palette
+        // Populate conceptNodesData (Unchanged logic)
         for (const categoryName in categories) {
-             if (categoryName === "Team") {
-                 const [bx, by, bz] = categories[categoryName].base;
-                 clusterCenters[categoryName] = new THREE.Vector3(bx, by, bz);
-                 continue;
-             }
-
             const category = categories[categoryName];
             const [bx, by, bz] = category.base;
             const centerPoint = new THREE.Vector3(bx, by, bz);
             clusterCenters[categoryName] = centerPoint;
-
+             if (categoryName !== "Team") conceptClusterCenters.push(centerPoint);
+             if (categoryName === "Team") continue;
             category.labels.forEach(label => {
                 const info = `${category.infoPrefix} ${label}. Part of ${categoryName.toLowerCase().replace('/', ' and ')}.`;
                 const sentence = `${category.sentencePrefix} ${label.toLowerCase()}.`;
-                // Assign color from the palette
-                const conceptColor = conceptColorPalette[conceptColorIndex % conceptColorPalette.length];
-                conceptColorIndex++; // Move to next color
-
-                conceptNodesData.push({
-                    type: 'concept',
-                    spawnPosition: randomPosition(bx, by, bz, conceptNodeSpread), // Store initial position
-                    label: label,
-                    category: categoryName,
-                    clusterCenter: centerPoint,
-                    info: info,
-                    color: conceptColor, // Use palette color
-                    sentence: sentence
-                });
+                const originalConceptColor = conceptColorPalette[conceptColorIndex % conceptColorPalette.length];
+                conceptColorIndex++;
+                conceptNodesData.push({ type: 'concept', spawnPosition: randomPosition(bx, by, bz, conceptNodeSpread), label: label, category: categoryName, clusterCenter: centerPoint, info: info, originalColorHex: originalConceptColor, sentence: sentence });
             });
         }
 
-        // --- Paper Node Definitions ---
-        // (Paper definitions remain the same as previous version)
-        const existingPapersInput = [
+        // Paper Node Definitions (Unchanged)
+        const existingPapersInput = [ /* ... paper data ... */
             { name: "JARVIS-VLA", url: "https://x.com/_akhaliq/status/1903155708457013610?s=12&t=TGTk_lVC4Ugrh9Op2GBFbQ", category: "Human-Robot Interaction", fullName: "JARVIS-VLA: A Generalist Vision-Language-Action Model for Robotic Control" },
             { name: "Gemma3", url: "https://storage.googleapis.com/deepmind-media/gemma/Gemma3Report.pdf", category: "Natural Language Processing", fullName: "Gemma3 Technical Report" },
             { name: "Portal Agents", url: "https://zhongwen.one/projects/portal/", category: "Multi-Agent Systems", fullName: "Agents Play Thousands of 3D Video Games through Procedurally Generated Worlds (Portal)" },
@@ -373,7 +399,7 @@
             { name: "Unified World Models", url: "https://weirdlabuw.github.io/uwm/", category: "Simulation & Modeling", fullName: "Unified World Models: Coupling Video and Action Diffusion" },
             { name: "UI-TARS", url: "https://seed-tars.com/1.5/", category: "Human-Robot Interaction", fullName: "UI-TARS: Pioneering Automated GUI Interaction with Native Agents" },
         ];
-        const newPapersInput = [
+        const newPapersInput = [ /* ... paper data ... */
              { name: "Agent57", url: "https://arxiv.org/abs/2003.13350?utm_source=chatgpt.com", category: "Action/Control", fullName: "Agent57: Outperforming the Atari Human Benchmark" },
              { name: "Other-Play", url: "https://arxiv.org/pdf/2003.02979", category: "Multi-Agent Systems", fullName: "“Other-Play” for Zero-Shot Coordination" },
              { name: "NetHack Env", url: "https://arxiv.org/abs/2006.13760", category: "Simulation & Modeling", fullName: "The NetHack Learning Environment" },
@@ -388,53 +414,34 @@
         ];
         const allPapersInput = [...existingPapersInput, ...newPapersInput];
 
-        // Populate paperNodesData
+        // Populate paperNodesData (Unchanged logic)
         allPapersInput.forEach(paper => {
             const targetCenter = clusterCenters[paper.category];
             if (targetCenter) {
-                paperNodesData.push({
-                    type: 'paper',
-                    spawnPosition: randomPosition(targetCenter.x, targetCenter.y, targetCenter.z, paperNodeSpread), // Store spawn position
-                    label: paper.name,
-                    category: paper.category,
-                    clusterCenter: targetCenter,
-                    info: paper.fullName,
-                    color: paperNodeColor,
-                    url: paper.url,
-                });
-            } else {
-                console.warn(`Category "${paper.category}" not found for paper "${paper.name}". Skipping node.`);
-            }
+                paperNodesData.push({ type: 'paper', spawnPosition: randomPosition(targetCenter.x, targetCenter.y, targetCenter.z, paperNodeSpread), label: paper.name, category: paper.category, clusterCenter: targetCenter, info: paper.fullName, originalColorHex: paperNodeColor, url: paper.url });
+            } else { console.warn(`Category "${paper.category}" not found for paper "${paper.name}". Skipping node.`); }
         });
 
-        // --- Team Member Definitions ---
+        // --- Team Member Definitions (Unchanged) ---
         const teamMembersInput = [
             { name: "Eloi Alonso", url: "https://eloialonso.github.io/" },
             { name: "Adam Jelley", url: "https://adamjelley.github.io/" },
             { name: "Vincent Micheli", url: "https://vmicheli.github.io/" },
             { name: "Pim de Witte", url: "https://pimdewitte.com/" },
             { name: "Fredrik Noren", url: "https://www.linkedin.com/in/fredrik-noren/" },
-            { name: "Florian Laurent", url: "https://masterscrat.github.io/" }
+            { name: "Florian Laurent", url: "https://masterscrat.github.io/" },
+            { name: "Karthick Jeyapal", url: "https://www.linkedin.com/in/karthick-jeyapal-a9a4a524/" }
         ];
 
-        // Populate teamNodesData
-        const teamTargetCenter = clusterCenters["Team"];
-        if (teamTargetCenter) {
+        // Populate teamNodesData (Unchanged logic)
+        const teamSpawnCenter = clusterCenters["Team"];
+        if (teamSpawnCenter) {
             teamMembersInput.forEach(member => {
-                teamNodesData.push({
-                    type: 'team',
-                    spawnPosition: randomPosition(teamTargetCenter.x, teamTargetCenter.y, teamTargetCenter.z, teamNodeSpread), // Store spawn position
-                    label: member.name,
-                    category: "Team",
-                    clusterCenter: teamTargetCenter,
-                    info: member.name,
-                    color: teamNodeColor,
-                    url: member.url,
-                });
+                const initialTargetIndex = Math.floor(Math.random() * conceptClusterCenters.length);
+                const initialTarget = conceptClusterCenters[initialTargetIndex];
+                teamNodesData.push({ type: 'team', spawnPosition: randomPosition(teamSpawnCenter.x, teamSpawnCenter.y, teamSpawnCenter.z, teamNodeSpread), label: member.name, category: "Team", clusterCenter: teamSpawnCenter, info: member.name, originalColorHex: teamNodeColor, url: member.url, targetClusterCenter: initialTarget.clone(), isMovingToTarget: true, pauseEndTime: 0 });
             });
-        } else {
-            console.warn("Team category center not found. Cannot place team nodes.");
-        }
+        } else { console.warn("Team category center not found. Cannot place team nodes."); }
 
         // Combine all node data
         const allNodesData = [...conceptNodesData, ...paperNodesData, ...teamNodesData];
@@ -443,13 +450,16 @@
         let scene, camera, renderer, controls;
         let raycaster, mouse;
         let nodes = [];
+        let teamNodes = [];
+        let otherNodes = [];
+        let clusterLines = [];
+        let stars;
         let intersectedObject = null;
         let animationFrameId = null;
         let nodeBeingClicked = null;
         let clickEffectStartTime = 0;
         const clock = new THREE.Clock();
-
-        // DOM References
+        // DOM References (Unchanged)
         const infoBox = document.getElementById('info-box');
         const infoLabel = document.getElementById('info-label');
         const infoDescription = document.getElementById('info-description');
@@ -469,13 +479,11 @@
         const closeDisclaimerOverlayBtn = document.getElementById('close-disclaimer-overlay-btn');
         const teamListUl = document.getElementById('team-list');
 
-        // --- Initialization ---
+        // --- Initialization (Raycaster threshold from V4.2) ---
         function init() {
             scene = new THREE.Scene();
-            // Use darker background
-            scene.background = new THREE.Color(0x050510);
-            // Adjust fog to match
-            scene.fog = new THREE.Fog(0x050510, 50, 180); // Start further, extend further
+            scene.background = new THREE.Color(backgroundColor);
+            scene.fog = new THREE.Fog(fogColor, fogNear, fogFar);
 
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.z = 50;
@@ -484,9 +492,9 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
 
-            const ambientLight = new THREE.AmbientLight(0xaaaaaa); // Slightly dimmer ambient for space
+            const ambientLight = new THREE.AmbientLight(0xaaaaaa);
             scene.add(ambientLight);
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); // Dimmer directional
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
             directionalLight.position.set(10, 15, 10);
             scene.add(directionalLight);
 
@@ -500,52 +508,87 @@
             raycaster = new THREE.Raycaster();
             mouse = new THREE.Vector2();
 
-            // Create Node Geometries
+            // Adjust raycaster threshold (from V4.2)
+            raycaster.params.Points.threshold = 1.5;
+
+            // Use node sizes from V4.1
             const conceptGeometry = new THREE.SphereGeometry(conceptNodeSize, 16, 8);
             const paperGeometry = new THREE.SphereGeometry(paperNodeSize, 12, 6);
             const teamGeometry = new THREE.SphereGeometry(teamNodeSize, 14, 7);
 
-            // Create all nodes
+            // Create Nodes (Unchanged logic)
             allNodesData.forEach(data => {
-                let geometry;
+                let geometry; let initialColor; let nodeMesh;
                 switch (data.type) {
-                    case 'paper': geometry = paperGeometry; break;
-                    case 'team': geometry = teamGeometry; break;
-                    case 'concept': default: geometry = conceptGeometry; break;
+                    case 'paper': geometry = paperGeometry; initialColor = defaultSpaceColor; break;
+                    case 'team': geometry = teamGeometry; initialColor = teamNodeColor; break;
+                    case 'concept': default: geometry = conceptGeometry; initialColor = defaultSpaceColor; break;
                 }
-                const nodeColor = data.color;
-                const material = new THREE.MeshLambertMaterial({ color: nodeColor });
-                const nodeMesh = new THREE.Mesh(geometry, material);
-                // Set initial position from spawnPosition
+                const material = new THREE.MeshLambertMaterial({ color: initialColor });
+                nodeMesh = new THREE.Mesh(geometry, material);
                 nodeMesh.position.copy(data.spawnPosition);
-
-                // Store data, including base size and animation offset
                 nodeMesh.userData = {
                     ...data,
                     baseScale: 1.0,
                     animOffset: Math.random() * Math.PI * 2,
-                    originalColor: new THREE.Color(nodeColor),
+                    originalColor: new THREE.Color(data.originalColorHex),
+                    spaceColor: new THREE.Color(defaultSpaceColor),
+                    targetColor: new THREE.Color(initialColor),
                     isNode: true,
-                    // Store spawn position for movement calculation
-                    spawnPosition: data.spawnPosition.clone()
+                    spawnPosition: data.spawnPosition.clone(),
                 };
                 scene.add(nodeMesh);
                 nodes.push(nodeMesh);
+                if (data.type === 'team') teamNodes.push(nodeMesh); else otherNodes.push(nodeMesh);
             });
 
-            // Populate Team List in Disclaimer Modal
+            // Create Cluster Connection Lines (Unchanged logic)
+            const lineMaterialInactive = new THREE.LineBasicMaterial({ color: lineDefaultColor, transparent: true, opacity: lineDefaultOpacity, depthWrite: false });
+            for (let i = 0; i < conceptClusterCenters.length; i++) {
+                for (let j = i + 1; j < conceptClusterCenters.length; j++) {
+                    const points = [conceptClusterCenters[i], conceptClusterCenters[j]];
+                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                    const lineMaterial = lineMaterialInactive.clone();
+                    const line = new THREE.Line(geometry, lineMaterial);
+                    line.userData = { startPoint: conceptClusterCenters[i], endPoint: conceptClusterCenters[j], targetOpacity: lineDefaultOpacity, targetColor: new THREE.Color(lineDefaultColor) };
+                    scene.add(line);
+                    clusterLines.push(line);
+                }
+            }
+
+            // Create Starfield (Unchanged logic)
+            const starVertices = [];
+            for (let i = 0; i < starCount; i++) {
+                const x = THREE.MathUtils.randFloatSpread(starSphereRadius * 2);
+                const y = THREE.MathUtils.randFloatSpread(starSphereRadius * 2);
+                const z = THREE.MathUtils.randFloatSpread(starSphereRadius * 2);
+                const vec = new THREE.Vector3(x, y, z);
+                if (vec.length() > starSphereRadius) {
+                    vec.setLength(starSphereRadius * THREE.MathUtils.randFloat(0.8, 1.0));
+                } else if (vec.length() < 50) {
+                     vec.setLength(50 + Math.random() * 50);
+                }
+                starVertices.push(vec.x, vec.y, vec.z);
+            }
+            const starGeometry = new THREE.BufferGeometry();
+            starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+            const starMaterial = new THREE.PointsMaterial({
+                color: 0xaaaaaa, size: 0.3, sizeAttenuation: true,
+                transparent: true, opacity: 0.7, depthWrite: false
+            });
+            stars = new THREE.Points(starGeometry, starMaterial);
+            scene.add(stars);
+
+            // Populate Team List in Disclaimer Modal (Unchanged logic)
+            teamListUl.innerHTML = '';
             teamMembersInput.forEach(member => {
-                const li = document.createElement('li');
-                const a = document.createElement('a');
-                a.href = member.url;
-                a.textContent = member.name;
-                a.target = "_blank";
-                a.rel = "noopener noreferrer";
-                li.appendChild(a);
-                teamListUl.appendChild(li);
+                const li = document.createElement('li'); const a = document.createElement('a');
+                a.href = member.url; a.textContent = member.name;
+                a.target = "_blank"; a.rel = "noopener noreferrer";
+                li.appendChild(a); teamListUl.appendChild(li);
             });
 
-            // Create signal dot elements
+            // Create signal dot elements (Unchanged logic)
             signalWaveContainer.innerHTML = '';
             for (let i = 0; i < numSignalDots; i++) {
                 const dot = document.createElement('div'); dot.classList.add('signal-dot-item');
@@ -554,268 +597,202 @@
                 signalWaveContainer.appendChild(dot);
             }
 
-            // Event Listeners
+            // Event Listeners (Unchanged logic)
             window.addEventListener('resize', onWindowResize, false);
             window.addEventListener('mousemove', onMouseMove, false);
             canvas.addEventListener('click', onCanvasClick, false);
             closeAnimationOverlayBtn.addEventListener('click', hideAnimationOverlay, false);
             showDisclaimerLink.addEventListener('click', showDisclaimerOverlay, false);
             closeDisclaimerOverlayBtn.addEventListener('click', hideDisclaimerOverlay, false);
-
-             document.querySelectorAll('#lab-links a').forEach(link => {
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    console.log(`Placeholder navigation to: ${link.getAttribute('href')}`);
-                    alert(`Placeholder: Navigating to ${link.textContent} section.`);
-                    hideDisclaimerOverlay();
-                });
-            });
+            // Removed event listener for #lab-links as they no longer exist
 
             startAnimationLoop();
         }
 
-        // --- Animation Loop Control ---
+        // --- Animation Loop Control (Unchanged) ---
         function startAnimationLoop() { if (!animationFrameId) { animate(); } }
         function stopAnimationLoop() { if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; } }
 
-        // --- Event Handlers ---
+        // --- Event Handlers (Unchanged) ---
         function onWindowResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
         function onMouseMove(event) { mouse.x = (event.clientX / window.innerWidth) * 2 - 1; mouse.y = -(event.clientY / window.innerHeight) * 2 + 1; }
         function onCanvasClick(event) {
             if (animationOverlay.style.display === 'flex' || nodeBeingClicked || disclaimerOverlay.style.display === 'flex') return;
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1; mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(nodes);
             if (intersects.length > 0 && intersects[0].object.userData.isNode) {
-                const clickedNodeObject = intersects[0].object;
-                const nodeData = clickedNodeObject.userData;
-                if ((nodeData.type === 'paper' || nodeData.type === 'team') && nodeData.url) {
-                    window.open(nodeData.url, '_blank');
-                }
+                const clickedNodeObject = intersects[0].object; const nodeData = clickedNodeObject.userData;
+                if ((nodeData.type === 'paper' || nodeData.type === 'team') && nodeData.url) { window.open(nodeData.url, '_blank'); }
                 else if (nodeData.type === 'concept' && nodeData.sentence) {
-                    nodeBeingClicked = clickedNodeObject;
-                    clickEffectStartTime = Date.now();
-                    nodeBeingClicked.material.color.set(clickHighlightColor);
-                    setTimeout(() => {
-                        if (nodeBeingClicked === clickedNodeObject) {
-                            showAnimationOverlay(nodeData.label, nodeData.sentence);
-                        }
-                    }, transitionDelay);
+                    nodeBeingClicked = clickedNodeObject; clickEffectStartTime = Date.now();
+                    setTimeout(() => { if (nodeBeingClicked === clickedNodeObject) showAnimationOverlay(nodeData.label, nodeData.sentence); }, transitionDelay);
                 }
             }
         }
 
-        // --- Overlay Controls ---
+        // --- Overlay Controls (Unchanged) ---
         let animationControl = { timeoutId: null, wordIndex: 0, words: [], isCancelled: false };
-        function showAnimationOverlay(label, sentence) { /* ... unchanged ... */
-            if (disclaimerOverlay.style.display === 'flex') return;
-            stopAnimationLoop();
-            mainVisualizationDiv.style.display = 'none';
-            overlayNodeLabel.textContent = `Exploring Concept: ${label}`;
-            animationOverlay.style.display = 'flex';
-            clearTimeout(animationControl.timeoutId);
-            animationControl.isCancelled = false;
-            signalWaveContainer.style.transition = 'none';
-            signalWaveContainer.style.opacity = '0';
-            signalWaveContainer.style.left = '-30px';
-            overlayOutput.innerHTML = '';
-            wordSelectionVis.innerHTML = '';
-            wordSelectionVis.classList.remove('visible');
-            networkLayerDivs.forEach(layer => layer.classList.remove('active'));
-            void signalWaveContainer.offsetWidth;
-            animationControl.words = sentence.split(' ');
-            animationControl.wordIndex = 0;
-            animateLLMStep();
+        function showAnimationOverlay(label, sentence) {
+            if (disclaimerOverlay.style.display === 'flex') return; stopAnimationLoop(); mainVisualizationDiv.style.display = 'none';
+            overlayNodeLabel.textContent = `Exploring Concept: ${label}`; animationOverlay.style.display = 'flex'; clearTimeout(animationControl.timeoutId);
+            animationControl.isCancelled = false; signalWaveContainer.style.transition = 'none'; signalWaveContainer.style.opacity = '0'; signalWaveContainer.style.left = '-30px';
+            overlayOutput.innerHTML = ''; wordSelectionVis.innerHTML = ''; wordSelectionVis.classList.remove('visible');
+            networkLayerDivs.forEach(layer => layer.classList.remove('active')); void signalWaveContainer.offsetWidth; animationControl.words = sentence.split(' ');
+            animationControl.wordIndex = 0; animateLLMStep();
          }
-        function hideAnimationOverlay() { /* ... unchanged ... */
-             animationControl.isCancelled = true;
-             clearTimeout(animationControl.timeoutId);
-             animationOverlay.style.display = 'none';
-             mainVisualizationDiv.style.display = 'block';
-             if (nodeBeingClicked) {
-                 if (nodeBeingClicked !== intersectedObject) {
-                    nodeBeingClicked.material.color.copy(nodeBeingClicked.userData.originalColor);
-                 } else {
-                    nodeBeingClicked.material.color.set(highlightColor);
-                 }
-                 nodeBeingClicked = null;
-             }
-             startAnimationLoop();
+        function hideAnimationOverlay() {
+             animationControl.isCancelled = true; clearTimeout(animationControl.timeoutId); animationOverlay.style.display = 'none'; mainVisualizationDiv.style.display = 'block';
+             nodeBeingClicked = null; startAnimationLoop();
          }
-        function showDisclaimerOverlay(event) { /* ... unchanged ... */
-            event.preventDefault(); if (animationOverlay.style.display === 'flex') return;
-            stopAnimationLoop(); mainVisualizationDiv.style.display = 'none'; disclaimerOverlay.style.display = 'flex';
+        function showDisclaimerOverlay(event) {
+            event.preventDefault(); if (animationOverlay.style.display === 'flex') return; stopAnimationLoop(); mainVisualizationDiv.style.display = 'none'; disclaimerOverlay.style.display = 'flex';
          }
-        function hideDisclaimerOverlay() { /* ... unchanged ... */
+        function hideDisclaimerOverlay() {
             disclaimerOverlay.style.display = 'none'; mainVisualizationDiv.style.display = 'block'; startAnimationLoop();
          }
 
-        // --- FASTER LLM Animation Step ---
-        async function animateLLMStep() { /* ... unchanged ... */
+        // --- FASTER LLM Animation Step (Unchanged) ---
+        async function animateLLMStep() {
              if (animationControl.isCancelled) return;
              if (animationControl.wordIndex >= animationControl.words.length) {
-                 wordSelectionVis.innerHTML = `<span class="prob-word selected">Done.</span>`;
-                 wordSelectionVis.classList.add('visible');
-                 animationControl.timeoutId = setTimeout(() => {
-                     if (!animationControl.isCancelled) wordSelectionVis.classList.remove('visible');
-                 }, 750);
-                 return;
+                 wordSelectionVis.innerHTML = `<span class="prob-word selected">Done.</span>`; wordSelectionVis.classList.add('visible');
+                 animationControl.timeoutId = setTimeout(() => { if (!animationControl.isCancelled) wordSelectionVis.classList.remove('visible'); }, 750); return;
              }
-             const currentWord = animationControl.words[animationControl.wordIndex];
-             const stepDuration = layerPassDuration / (numNetworkLayers + 1);
-
-             signalWaveContainer.style.transition = 'none';
-             signalWaveContainer.style.left = '-30px';
-             void signalWaveContainer.offsetWidth;
-             signalWaveContainer.style.opacity = '1';
+             const currentWord = animationControl.words[animationControl.wordIndex]; const stepDuration = layerPassDuration / (numNetworkLayers + 1);
+             signalWaveContainer.style.transition = 'none'; signalWaveContainer.style.left = '-30px'; void signalWaveContainer.offsetWidth; signalWaveContainer.style.opacity = '1';
              signalWaveContainer.style.transition = `left ${stepDuration}ms linear, opacity 0.1s linear`;
-
              for (let currentLayer = 1; currentLayer <= numNetworkLayers + 1; currentLayer++) {
-                 if (animationControl.isCancelled) return;
-                 const targetX = ( (currentLayer -1) * (overlayContent.offsetWidth / numNetworkLayers)) ;
-                 signalWaveContainer.style.left = `${targetX}px`;
-                 if (currentLayer > 1 && currentLayer <= numNetworkLayers + 1) {
-                     networkLayerDivs[currentLayer - 2].classList.remove('active');
-                 }
-                 if (currentLayer > 0 && currentLayer <= numNetworkLayers) {
-                     networkLayerDivs[currentLayer - 1].classList.add('active');
-                 }
-                 await delay(stepDuration);
+                 if (animationControl.isCancelled) return; const targetX = ( (currentLayer -1) * (overlayContent.offsetWidth / numNetworkLayers)) ; signalWaveContainer.style.left = `${targetX}px`;
+                 if (currentLayer > 1 && currentLayer <= numNetworkLayers + 1) networkLayerDivs[currentLayer - 2].classList.remove('active');
+                 if (currentLayer > 0 && currentLayer <= numNetworkLayers) networkLayerDivs[currentLayer - 1].classList.add('active'); await delay(stepDuration);
              }
-
-             if (!animationControl.isCancelled && numNetworkLayers > 0) {
-                 networkLayerDivs[numNetworkLayers - 1].classList.remove('active');
-             }
-             signalWaveContainer.style.opacity = '0';
-
-             if (animationControl.isCancelled) return;
-
-             wordSelectionVis.innerHTML = '';
-             genericAlternatives.forEach(altWord => {
-                 if (altWord.toLowerCase() !== currentWord.toLowerCase()) {
-                     const altSpan = document.createElement('span'); altSpan.textContent = altWord; altSpan.classList.add('prob-word', 'alternative'); wordSelectionVis.appendChild(altSpan);
-                 }
-             });
+             if (!animationControl.isCancelled && numNetworkLayers > 0) networkLayerDivs[numNetworkLayers - 1].classList.remove('active');
+             signalWaveContainer.style.opacity = '0'; if (animationControl.isCancelled) return; wordSelectionVis.innerHTML = '';
+             genericAlternatives.forEach(altWord => { if (altWord.toLowerCase() !== currentWord.toLowerCase()) { const altSpan = document.createElement('span'); altSpan.textContent = altWord; altSpan.classList.add('prob-word', 'alternative'); wordSelectionVis.appendChild(altSpan); } });
              const selectedSpan = document.createElement('span'); selectedSpan.textContent = currentWord; selectedSpan.classList.add('prob-word', 'selected');
-             const insertIndex = Math.floor(Math.random() * (wordSelectionVis.children.length + 1));
-             wordSelectionVis.insertBefore(selectedSpan, wordSelectionVis.children[insertIndex]);
-             wordSelectionVis.classList.add('visible');
-
-             await delay(wordSelectionDuration);
-
-             if (animationControl.isCancelled) return;
-             wordSelectionVis.classList.remove('visible');
-
+             const insertIndex = Math.floor(Math.random() * (wordSelectionVis.children.length + 1)); wordSelectionVis.insertBefore(selectedSpan, wordSelectionVis.children[insertIndex]);
+             wordSelectionVis.classList.add('visible'); await delay(wordSelectionDuration); if (animationControl.isCancelled) return; wordSelectionVis.classList.remove('visible');
              const span = document.createElement('span'); span.textContent = currentWord + ' '; span.classList.add('current-word'); overlayOutput.appendChild(span);
-             animationControl.wordIndex++;
-
-             if (!animationControl.isCancelled) {
-                 animationControl.timeoutId = setTimeout(animateLLMStep, wordAppendDelay);
-             }
+             animationControl.wordIndex++; if (!animationControl.isCancelled) animationControl.timeoutId = setTimeout(animateLLMStep, wordAppendDelay);
          }
 
-        // --- Core Logic: Intersection Checks ---
-        function checkIntersections() { /* ... unchanged ... */
+        // --- Core Logic: Intersection Checks (Unchanged) ---
+        function checkIntersections() {
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(nodes);
-
-            let newIntersectedObject = null;
-            if (intersects.length > 0 && intersects[0].object.userData.isNode) {
-                newIntersectedObject = intersects[0].object;
-            }
-
+            let newIntersectedObject = null; if (intersects.length > 0 && intersects[0].object.userData.isNode) newIntersectedObject = intersects[0].object;
             if (intersectedObject !== newIntersectedObject) {
-                if (intersectedObject && intersectedObject !== nodeBeingClicked) {
-                    intersectedObject.material.color.copy(intersectedObject.userData.originalColor);
-                }
                 intersectedObject = newIntersectedObject;
                 if (intersectedObject) {
-                    if (intersectedObject !== nodeBeingClicked) {
-                        intersectedObject.material.color.set(highlightColor);
-                    }
-                    infoLabel.textContent = intersectedObject.userData.label;
-                    infoDescription.textContent = intersectedObject.userData.info;
-                    infoLabel.classList.remove('paper-title', 'team-title');
-                    if (intersectedObject.userData.type === 'paper') {
-                        infoLabel.classList.add('paper-title');
-                    } else if (intersectedObject.userData.type === 'team') {
-                        infoLabel.classList.add('team-title');
-                    }
+                    const data = intersectedObject.userData;
+                    infoLabel.textContent = data.label; infoDescription.textContent = data.info;
+                    infoBox.className = 'hover-' + data.type;
                     infoBox.style.display = 'block';
                 } else {
-                    infoBox.style.display = 'none';
+                    infoBox.style.display = 'none'; infoBox.className = '';
                 }
             }
          }
 
 
-        // --- Main Animation Loop (Handles Node Movement & Scaling) ---
+        // --- Main Animation Loop (Unchanged logic) ---
         function animate() {
             animationFrameId = requestAnimationFrame(animate);
             const delta = clock.getDelta();
             const elapsed = clock.getElapsedTime();
-            const now = Date.now(); // For click effect timing
+            const now = Date.now();
 
             controls.update();
             checkIntersections();
 
+            // Rotate starfield
+            if (stars) {
+                stars.rotation.y += delta * 0.01;
+                stars.rotation.x += delta * 0.005;
+            }
+
             const cameraPosition = camera.position;
+            const pausedClusterCenters = new Map();
 
-            nodes.forEach(node => {
-                const nodeData = node.userData;
-                let baseScale = nodeData.baseScale || 1.0;
-                let targetScale = baseScale;
-                let isClickEffectActive = false;
+            // Team Node Movement & Pause Logic (Unchanged)
+            teamNodes.forEach(teamNode => {
+                const teamData = teamNode.userData;
+                if (!teamData.isMovingToTarget) {
+                    const centerKey = teamData.targetClusterCenter.toArray().toString();
+                    pausedClusterCenters.set(centerKey, (pausedClusterCenters.get(centerKey) || 0) + 1);
+                    if (now > teamData.pauseEndTime) {
+                        let newTargetIndex; let currentTargetIndex = conceptClusterCenters.findIndex(center => vectorsAreEqual(center, teamData.targetClusterCenter));
+                        do { newTargetIndex = Math.floor(Math.random() * conceptClusterCenters.length); } while (newTargetIndex === currentTargetIndex && conceptClusterCenters.length > 1);
+                        teamData.targetClusterCenter.copy(conceptClusterCenters[newTargetIndex]);
+                        teamData.isMovingToTarget = true;
+                    }
+                } else {
+                    teamNode.position.lerp(teamData.targetClusterCenter, teamMoveSpeed);
+                    if (teamNode.position.distanceTo(teamData.targetClusterCenter) < teamTargetReachedThreshold) {
+                        teamData.isMovingToTarget = false; teamData.pauseEndTime = now + teamPauseDuration;
+                        teamNode.position.copy(teamData.targetClusterCenter);
+                    }
+                }
+                // Team Node Scaling (Unchanged)
+                const teamOscillation = Math.sin(elapsed * baseAnimFreq * 1.1 + teamData.animOffset) * baseAnimAmpPaperTeam;
+                let teamTargetScale = teamData.baseScale + teamOscillation;
+                const teamDistance = cameraPosition.distanceTo(teamNode.position); const teamDistanceFactor = Math.max(0, 1.0 - teamDistance / distanceScaleFactor);
+                const teamDistanceBonus = maxDistanceScaleBonus * teamDistanceFactor * teamDistanceFactor; teamTargetScale *= (1.0 + teamDistanceBonus);
+                if (teamNode === intersectedObject) teamTargetScale = 1.3;
+                teamNode.scale.lerp(new THREE.Vector3(teamTargetScale, teamTargetScale, teamTargetScale), 0.1);
+            });
 
-                // --- Node Movement ---
-                // Calculate target position based on oscillation around spawn point
-                const moveOffset = new THREE.Vector3(
-                    Math.sin(elapsed * nodeMoveFreq * 0.8 + nodeData.animOffset) * nodeMoveAmplitude, // Vary freq per axis slightly
-                    Math.cos(elapsed * nodeMoveFreq * 1.2 + nodeData.animOffset) * nodeMoveAmplitude,
-                    Math.sin(elapsed * nodeMoveFreq + nodeData.animOffset * 0.5) * nodeMoveAmplitude
-                );
-                const targetPosition = nodeData.spawnPosition.clone().add(moveOffset);
-                // Smoothly move node towards the target position
-                node.position.lerp(targetPosition, nodeLerpFactor);
+            // Cluster Line Activation Logic (Unchanged)
+            clusterLines.forEach(line => {
+                const lineData = line.userData;
+                let pausedProbesAtEnds = 0;
+                const startKey = lineData.startPoint.toArray().toString(); const endKey = lineData.endPoint.toArray().toString();
+                pausedProbesAtEnds += pausedClusterCenters.get(startKey) || 0; pausedProbesAtEnds += pausedClusterCenters.get(endKey) || 0;
 
-                // --- Base Oscillation Scaling ---
-                const animAmp = (nodeData.type === 'paper' || nodeData.type === 'team') ? baseAnimAmpPaperTeam : baseAnimAmpConcept;
-                const oscillation = Math.sin(elapsed * baseAnimFreq + nodeData.animOffset) * animAmp;
-                targetScale += oscillation;
+                let targetOpacity;
+                if (pausedProbesAtEnds > 0) {
+                    targetOpacity = Math.min(lineMaxActiveOpacity, lineDefaultOpacity + lineOpacityIncreasePerProbe * pausedProbesAtEnds);
+                    lineData.targetColor.set(lineActiveColor);
+                } else {
+                    targetOpacity = lineDefaultOpacity;
+                    lineData.targetColor.set(lineDefaultColor);
+                }
+                lineData.targetOpacity = targetOpacity;
 
-                // --- Distance Scaling ---
-                const distance = cameraPosition.distanceTo(node.position);
-                const distanceFactor = Math.max(0, 1.0 - distance / distanceScaleFactor);
-                const distanceBonus = maxDistanceScaleBonus * distanceFactor * distanceFactor;
-                targetScale *= (1.0 + distanceBonus);
+                line.material.opacity = THREE.MathUtils.lerp(line.material.opacity, lineData.targetOpacity, lineTransitionSpeed);
+                line.material.color.lerp(lineData.targetColor, lineTransitionSpeed);
+            });
 
-                // --- Concept Node Click Animation Effect ---
+            // Proximity Color Change & Other Node Updates (Unchanged logic)
+            const activatedNodes = new Set();
+            teamNodes.forEach(teamNode => { otherNodes.forEach(otherNode => { if (teamNode.position.distanceTo(otherNode.position) < proximityThreshold) activatedNodes.add(otherNode); }); });
+
+            otherNodes.forEach(node => {
+                const nodeData = node.userData; let targetScale = nodeData.baseScale || 1.0; let isClickEffectActive = false; let finalTargetColor = nodeData.spaceColor;
+
+                if (activatedNodes.has(node)) finalTargetColor = nodeData.originalColor;
+
+                const moveOffset = new THREE.Vector3( Math.sin(elapsed * nodeMoveFreq * 0.8 + nodeData.animOffset) * nodeMoveAmplitude, Math.cos(elapsed * nodeMoveFreq * 1.2 + nodeData.animOffset) * nodeMoveAmplitude, Math.sin(elapsed * nodeMoveFreq + nodeData.animOffset * 0.5) * nodeMoveAmplitude );
+                const targetPosition = nodeData.spawnPosition.clone().add(moveOffset); node.position.lerp(targetPosition, nodeLerpFactor);
+
+                const animAmp = baseAnimAmpConcept; const oscillation = Math.sin(elapsed * baseAnimFreq + nodeData.animOffset) * animAmp; targetScale += oscillation;
+                const distance = cameraPosition.distanceTo(node.position); const distanceFactor = Math.max(0, 1.0 - distance / distanceScaleFactor); const distanceBonus = maxDistanceScaleBonus * distanceFactor * distanceFactor; targetScale *= (1.0 + distanceBonus);
+
                 if (node === nodeBeingClicked && nodeData.type === 'concept') {
-                    node.material.color.set(clickHighlightColor);
-                    isClickEffectActive = true;
-                    let clickScale = 1.0;
-                    // Use Date.now() based timing for click effect consistency
-                    if (now < clickEffectStartTime + clickEffectDuration) {
-                        const elapsedClick = now - clickEffectStartTime;
-                        const progress = elapsedClick / clickEffectDuration;
-                        clickScale = 1.0 + Math.sin(progress * Math.PI) * 0.5;
-                    }
-                    targetScale = clickScale; // Override scale for click effect
+                    finalTargetColor = new THREE.Color(clickHighlightColor); isClickEffectActive = true; let clickScale = 1.0;
+                    if (now < clickEffectStartTime + clickEffectDuration) { const progress = (now - clickEffectStartTime) / clickEffectDuration; clickScale = 1.0 + Math.sin(progress * Math.PI) * 0.5; }
+                    else { if(animationOverlay.style.display !== 'flex') nodeBeingClicked = null; }
+                    targetScale = clickScale;
                 }
 
-                // --- Hover Effect (Apply if not animating a concept click) ---
-                if (!isClickEffectActive) {
-                    if (node === intersectedObject) {
-                        targetScale = 1.3; // Hover scale overrides others
-                        node.material.color.set(highlightColor);
-                    } else {
-                        // Reset color if not hovered/clicked
-                        node.material.color.copy(nodeData.originalColor);
-                    }
+                if (!isClickEffectActive && node === intersectedObject) {
+                    targetScale = 1.3;
+                    if (nodeData.type === 'concept') finalTargetColor = new THREE.Color(highlightColor);
+                    else if (nodeData.type === 'paper') finalTargetColor = new THREE.Color(paperHighlightColor);
                 }
 
-                // Apply scale smoothly
+                node.material.color.lerp(finalTargetColor, colorLerpFactor);
                 node.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
             });
 
