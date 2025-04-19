@@ -131,15 +131,16 @@
         #instructions a:hover { text-decoration: underline; }
 
         /* --- Overlay Styles --- */
-        #animation-overlay, #disclaimer-overlay {
+        #animation-overlay, #disclaimer-overlay, #iframe-overlay { /* Added iframe-overlay */
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             display: none; justify-content: center; align-items: center;
             z-index: 100; padding: 20px; box-sizing: border-box;
             font-family: 'Inter', sans-serif;
-             touch-action: auto; /* Allow scrolling within disclaimer if needed */
+             touch-action: auto; /* Allow scrolling within disclaimer/iframe if needed */
         }
         #animation-overlay { background-color: rgba(0, 0, 0, 0.9); flex-direction: column; }
         #disclaimer-overlay { background-color: rgba(10, 10, 20, 0.95); overflow-y: auto; }
+        #iframe-overlay { background-color: rgba(0, 0, 10, 0.9); } /* Slightly different background */
 
         #overlay-node-label { color: #bbb; font-size: 16px; margin-bottom: 20px; text-align: center; font-weight: 700; }
         #overlay-content { display: flex; align-items: center; justify-content: space-around; width: 90%; max-width: 700px; height: 80px; margin-bottom: 25px; position: relative; border-bottom: 1px dashed rgba(0, 255, 255, 0.3); padding-bottom: 20px; }
@@ -166,6 +167,7 @@
             position: absolute; top: 15px; right: 15px; background-color: #dd0000; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer;
             font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700;
             box-shadow: 0 0 8px #ff0000; transition: background-color 0.2s;
+            z-index: 110; /* Ensure close button is above iframe */
         }
         .close-overlay-btn:hover { background-color: #aa0000; }
 
@@ -216,6 +218,41 @@
             color: #3ff;
         }
 
+        /* --- ADDED: Iframe Modal Styles --- */
+        #iframe-content {
+            background-color: #111; /* Dark background for content area */
+            border: 1px solid #0ff;
+            border-radius: 8px;
+            padding: 20px;
+            padding-top: 50px; /* Space for close button and link */
+            width: 90%;
+            height: 85%;
+            max-width: 1200px; /* Allow wider modals */
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            position: relative; /* For positioning close button */
+            display: flex; /* Use flexbox for layout */
+            flex-direction: column; /* Stack elements vertically */
+        }
+        #iframe-fallback-container {
+            margin-bottom: 10px; /* Space between link and iframe */
+            text-align: center;
+            color: #aaa;
+            font-size: 12px;
+        }
+        #iframe-fallback-container a {
+            color: #0ff;
+            text-decoration: underline;
+        }
+        #iframe-fallback-container a:hover {
+            color: #3ff;
+        }
+        #link-iframe {
+            width: 100%;
+            flex-grow: 1; /* Allow iframe to take remaining height */
+            border: none; /* Remove default iframe border */
+            background-color: #fff; /* White background for loading/error */
+        }
+
 
         /* --- Animations --- */
         @keyframes fadeInLayer { from { opacity: 0; transform: scaleY(0.5); } to { opacity: 1; transform: scaleY(1); } }
@@ -254,15 +291,22 @@
     <div id="disclaimer-overlay">
          <div id="disclaimer-content">
             <h2>General Intuition</h2>
-
-            <ul id="team-list">
-                </ul>
-
+            <ul id="team-list"></ul>
             <a href="mailto:careers@generalintuition.ai" class="email-link">careers@generalintuition.ai</a>
-
         </div>
         <button id="close-disclaimer-overlay-btn" class="close-overlay-btn">X</button>
     </div>
+
+    <div id="iframe-overlay">
+        <div id="iframe-content">
+            <div id="iframe-fallback-container">
+                Content might be blocked. Try opening directly: <a id="iframe-fallback-link" href="#" target="_blank" rel="noopener noreferrer">Link</a>
+            </div>
+            <iframe id="link-iframe" src="about:blank" title="External Content"></iframe>
+        </div>
+        <button id="close-iframe-overlay-btn" class="close-overlay-btn">X</button>
+    </div>
+
 
     <script type="importmap">
         { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/" } }
@@ -286,10 +330,10 @@
         const numNetworkLayers = 5;
         const clickEffectDuration = 500; // ms for click visual pulse
         const transitionDelay = 300; // ms delay before overlay shows on concept click
-        const conceptNodeSpread = 5; // How far concepts spread around category centroids (slightly increased)
+        const conceptNodeSpread = 8; // Increased spread around centroids
         const paperNodeSpreadRadius = 35; // Radius for distributing papers (slightly increased)
         const teamNodeSpread = 5; // How far team nodes spread around origin
-        const maxConceptsPerCategory = 5; // ADDED: Limit concepts per category
+        const maxConceptsPerCategory = 5; // Limit concepts per category
 
         // Node Movement Params
         const nodeMoveAmplitude = 0.3; // Wiggle distance
@@ -521,7 +565,7 @@
                 const centroid = categoryCentroids.get(categoryName); // Get the calculated centroid
 
                 if (centroid) { // Check if centroid exists
-                    // --- ADDED: Limit concepts per category ---
+                    // --- Limit concepts per category ---
                     const labels = category.labels;
                     const labelsToUse = labels.length > maxConceptsPerCategory
                         ? labels.slice(0, maxConceptsPerCategory) // Take first N
@@ -619,6 +663,11 @@
         const mobileReticle = document.getElementById('mobile-reticle');
         const desktopInstructions = document.getElementById('desktop-instructions');
         const mobileInstructions = document.getElementById('mobile-instructions');
+        // ADDED: Iframe Modal Refs
+        const iframeOverlay = document.getElementById('iframe-overlay');
+        const linkIframe = document.getElementById('link-iframe');
+        const iframeFallbackLink = document.getElementById('iframe-fallback-link');
+        const closeIframeOverlayBtn = document.getElementById('close-iframe-overlay-btn');
 
 
         // --- Mobile detection logic ---
@@ -782,14 +831,17 @@
             canvas.addEventListener('mousemove', onMouseMove, false);
             canvas.addEventListener('click', onCanvasClick, false); // Desktop clicks only now
             // Mobile
-            canvas.addEventListener('touchstart', onTouchStart, { passive: false }); // Need preventDefault sometimes
-            canvas.addEventListener('touchmove', onTouchMove, { passive: false }); // Need preventDefault sometimes
+            canvas.addEventListener('touchstart', onTouchStart, { passive: false }); // Use active listener
+            canvas.addEventListener('touchmove', onTouchMove, { passive: false }); // Use active listener
             canvas.addEventListener('touchend', onTouchEnd, false);
             // General
             canvas.addEventListener('contextmenu', (event) => event.preventDefault()); // Prevent context menu
             closeAnimationOverlayBtn.addEventListener('click', hideAnimationOverlay, false);
             showDisclaimerLink.addEventListener('click', showDisclaimerOverlay, false);
             closeDisclaimerOverlayBtn.addEventListener('click', hideDisclaimerOverlay, false);
+            // ADDED: Iframe close button listener
+            closeIframeOverlayBtn.addEventListener('click', hideIframeOverlay, false);
+
 
             startAnimationLoop(); // Begin the main animation loop
         }
@@ -823,7 +875,7 @@
             if (isMobile) return;
 
             // Ignore clicks if an overlay is open or a node is already being processed for click
-            if (animationOverlay.style.display === 'flex' || nodeBeingClicked || disclaimerOverlay.style.display === 'flex') return;
+            if (animationOverlay.style.display === 'flex' || iframeOverlay.style.display === 'flex' || nodeBeingClicked || disclaimerOverlay.style.display === 'flex') return;
 
             // Desktop uses raycasting from mouse position
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -844,9 +896,8 @@
         // --- Mobile Touch Handlers ---
         function onTouchStart(event) {
             if (!isMobile) return;
-            // Prevent default only if needed (e.g., to prevent scrolling when starting drag on canvas)
-            // OrbitControls usually handles this for its own gestures.
-            // event.preventDefault();
+            // Prevent default page scroll/zoom behavior if touch starts on canvas
+            event.preventDefault();
 
             // Only process the first touch for tap detection
             if (event.touches.length === 1) {
@@ -863,6 +914,8 @@
 
         function onTouchMove(event) {
             if (!isMobile || isDragging) return;
+            // Prevent default page scroll if dragging on canvas
+            event.preventDefault();
 
             // If not already dragging, check if movement exceeds threshold
             if (event.touches.length === 1) {
@@ -876,11 +929,11 @@
                  // Multi-touch move is definitely not a tap
                  isDragging = true;
             }
-            // We don't preventDefault here usually, let OrbitControls handle drag/pinch
         }
 
         function onTouchEnd(event) {
             if (!isMobile) return;
+            // event.preventDefault(); // Sometimes needed on touchend too
 
             // Check if it was a valid tap (short duration, no dragging, only one touch point involved)
             const duration = Date.now() - touchStartTime;
@@ -888,7 +941,7 @@
             if (!isDragging && duration < tapTimeThreshold && event.changedTouches.length === 1) {
                 // --- TAP DETECTED ---
                 // Ignore taps if an overlay is open or a node is already being processed
-                if (animationOverlay.style.display === 'flex' || nodeBeingClicked || disclaimerOverlay.style.display === 'flex') return;
+                if (animationOverlay.style.display === 'flex' || iframeOverlay.style.display === 'flex' || nodeBeingClicked || disclaimerOverlay.style.display === 'flex') return;
 
                 // Mobile selection uses the intersectedObject determined by checkIntersections
                 const tappedNodeObject = intersectedObject; // Use the object currently under reticle
@@ -913,14 +966,18 @@
 
              // Handle different click actions
              if ((nodeData.type === 'paper' || nodeData.type === 'team') && nodeData.url) {
-                 // Open URL after a short delay (allows click effect to start)
-                 setTimeout(() => {
-                     if(nodeBeingClicked === nodeObject) window.open(nodeData.url, '_blank');
-                     // Reset click state for non-concept nodes after URL open attempt
-                      if (nodeData.type !== 'concept' && nodeBeingClicked === nodeObject) {
-                           // Allow click effect to end naturally in animate loop
-                      }
-                 }, 150);
+                 // --- MODIFIED: Show Iframe Modal ---
+                 // Set iframe source and fallback link
+                 linkIframe.src = nodeData.url;
+                 iframeFallbackLink.href = nodeData.url;
+                 iframeFallbackLink.textContent = nodeData.url; // Show URL as link text
+
+                 // Show overlay, hide main view, stop animation
+                 iframeOverlay.style.display = 'flex';
+                 mainVisualizationDiv.style.display = 'none';
+                 stopAnimationLoop();
+                 // Click effect reset will happen naturally or when modal closes
+
              } else if (nodeData.type === 'concept' && nodeData.sentence) {
                  // Delay showing the overlay slightly to allow click effect to be seen
                  setTimeout(() => {
@@ -940,7 +997,7 @@
         let animationControl = { timeoutId: null, wordIndex: 0, words: [], isCancelled: false };
 
         function showAnimationOverlay(label, sentence) {
-            if (disclaimerOverlay.style.display === 'flex') return;
+            if (disclaimerOverlay.style.display === 'flex' || iframeOverlay.style.display === 'flex') return;
             stopAnimationLoop(); // Pause the main 3D animation
             mainVisualizationDiv.style.display = 'none';
             overlayNodeLabel.textContent = `Exploring Concept: ${label}`;
@@ -964,28 +1021,34 @@
              animationControl.isCancelled = true; clearTimeout(animationControl.timeoutId);
              animationOverlay.style.display = 'none';
              mainVisualizationDiv.style.display = 'block';
-             // *** ADDED: Call onWindowResize after making div visible ***
-             onWindowResize();
-             // Reset click state when overlay closes
-             nodeBeingClicked = null;
+             onWindowResize(); // Ensure renderer size is correct
+             nodeBeingClicked = null; // Reset click state
              startAnimationLoop();
          }
 
         function showDisclaimerOverlay(event) {
             event.preventDefault();
-            // Prevent opening if animation overlay is open or a node is being clicked
-            if (animationOverlay.style.display === 'flex' || nodeBeingClicked) return;
+            // Prevent opening if other overlays are open or a node is being clicked
+            if (animationOverlay.style.display === 'flex' || iframeOverlay.style.display === 'flex' || nodeBeingClicked) return;
             stopAnimationLoop(); mainVisualizationDiv.style.display = 'none'; disclaimerOverlay.style.display = 'flex';
          }
 
         function hideDisclaimerOverlay() {
             disclaimerOverlay.style.display = 'none';
             mainVisualizationDiv.style.display = 'block';
-            // *** ADDED: Call onWindowResize after making div visible ***
-            onWindowResize();
-            // Reset click state if disclaimer is closed
-            nodeBeingClicked = null;
+            onWindowResize(); // Ensure renderer size is correct
+            nodeBeingClicked = null; // Reset click state
             startAnimationLoop();
+         }
+
+         // --- ADDED: Iframe Modal Hide Function ---
+         function hideIframeOverlay() {
+             iframeOverlay.style.display = 'none';
+             linkIframe.src = 'about:blank'; // Clear iframe to stop loading/sound
+             mainVisualizationDiv.style.display = 'block';
+             onWindowResize(); // Ensure renderer size is correct
+             nodeBeingClicked = null; // Reset click state
+             startAnimationLoop();
          }
 
         // --- FASTER LLM Animation Step --- (Unchanged)
@@ -1188,7 +1251,8 @@
                          clickScale = 1.0 + Math.sin(progress * Math.PI) * 0.3; // Smaller pulse
                      } else {
                          // Reset click state ONLY if not a concept node (concept node reset is handled by overlay close)
-                         if (teamData.type !== 'concept') {
+                         // AND only if the iframe modal isn't open (iframe modal handles its own reset)
+                         if (teamData.type !== 'concept' && iframeOverlay.style.display !== 'flex') {
                               nodeBeingClicked = null;
                          }
                      }
@@ -1209,6 +1273,7 @@
                  const startKey = lineData.startPoint.toArray().toString();
                  const endKey = lineData.endPoint.toArray().toString();
                  pausedPaperTargets.forEach((count, targetPositionVec) => {
+                     // Convert map key back to string if needed, or ensure consistency
                      const targetKey = targetPositionVec.toArray().toString();
                       if (targetKey === startKey || targetKey === endKey) {
                            pausedProbesAtEnds += count;
@@ -1293,7 +1358,8 @@
                         clickScale = 1.0 + Math.sin(progress * Math.PI) * pulseFactor;
                     } else {
                          // Reset click state ONLY if not a concept node (concept node reset is handled by overlay close)
-                         if (nodeData.type !== 'concept') {
+                         // AND only if the iframe modal isn't open (iframe modal handles its own reset)
+                         if (nodeData.type !== 'concept' && iframeOverlay.style.display !== 'flex') {
                               nodeBeingClicked = null;
                          }
                     }
