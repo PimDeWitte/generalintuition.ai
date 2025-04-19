@@ -272,8 +272,8 @@
 
         // Team Probe Movement Params
         const teamMoveSpeed = 0.008;
-        const teamTargetReachedThreshold = 3.0;
-        const teamPauseDuration = 2500;
+        const teamTargetReachedThreshold = 3.0; // Node stops when distance is less than this
+        const teamPauseDuration = 2500; // Pause time in milliseconds
 
         // Proximity Color Change Params
         const proximityThreshold = 5.0;
@@ -282,8 +282,7 @@
         // Cluster Line Params
         const lineDefaultColor = 0x444444;
         const lineDefaultOpacity = 0.1;
-        // *** MODIFIED: Changed active line color to white ***
-        const lineActiveColor = 0xffffff;
+        const lineActiveColor = 0xffffff; // White active lines
         const lineMaxActiveOpacity = 0.35;
         const lineOpacityIncreasePerProbe = 0.06;
         const lineTransitionSpeed = 0.1;
@@ -491,7 +490,6 @@
         let nodeBeingClicked = null;
         let clickEffectStartTime = 0;
         const clock = new THREE.Clock();
-        // *** ADDED: Mobile detection flag ***
         let isMobile = false;
         // DOM References
         const infoBox = document.getElementById('info-box');
@@ -512,18 +510,14 @@
         const showDisclaimerLink = document.getElementById('show-disclaimer-link');
         const closeDisclaimerOverlayBtn = document.getElementById('close-disclaimer-overlay-btn');
         const teamListUl = document.getElementById('team-list');
-        // *** ADDED: Mobile reticle and instruction text refs ***
         const mobileReticle = document.getElementById('mobile-reticle');
         const desktopInstructions = document.getElementById('desktop-instructions');
         const mobileInstructions = document.getElementById('mobile-instructions');
 
 
-        // *** ADDED: Mobile detection logic ***
+        // --- Mobile detection logic ---
         function detectMobile() {
-            // Simple check: combination of screen width and touch capability
             isMobile = window.innerWidth <= 768 && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-
-            // Show/hide the reticle and appropriate instructions based on detection
             if (mobileReticle) {
                  mobileReticle.style.display = isMobile ? 'block' : 'none';
             }
@@ -531,18 +525,14 @@
                  desktopInstructions.style.display = isMobile ? 'none' : 'inline';
                  mobileInstructions.style.display = isMobile ? 'inline' : 'none';
              }
-             // Update controls based on mobile status
              if (controls) {
-                 controls.enablePan = !isMobile; // Disable panning on mobile maybe? Or keep it? User preference.
-                 // OrbitControls often handles touch reasonably well, but you might
-                 // want to adjust sensitivity or behavior for mobile here.
+                 controls.enablePan = !isMobile;
              }
         }
 
 
         // --- Initialization ---
         function init() {
-            // *** ADDED: Initial mobile detection ***
             detectMobile();
 
             scene = new THREE.Scene();
@@ -565,22 +555,20 @@
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
-            controls.screenSpacePanning = false; // Keep false for typical orbit behaviour
+            controls.screenSpacePanning = false;
             controls.minDistance = 10;
             controls.maxDistance = 120;
 
             raycaster = new THREE.Raycaster();
             mouse = new THREE.Vector2();
+            raycaster.params.Points.threshold = 2.0; // Adjusted threshold
 
-            // *** MODIFIED: Increased threshold slightly for easier center selection ***
-            raycaster.params.Points.threshold = 2.0;
-
-            // Use node sizes from V4.1
+            // Create Nodes Geometries
             const conceptGeometry = new THREE.SphereGeometry(conceptNodeSize, 16, 8);
             const paperGeometry = new THREE.SphereGeometry(paperNodeSize, 12, 6);
             const teamGeometry = new THREE.SphereGeometry(teamNodeSize, 14, 7);
 
-            // Create Nodes
+            // Create Nodes Meshes
             allNodesData.forEach(data => {
                 let geometry; let initialColor; let nodeMesh;
                 switch (data.type) {
@@ -597,7 +585,7 @@
                     animOffset: Math.random() * Math.PI * 2,
                     originalColor: new THREE.Color(data.originalColorHex),
                     spaceColor: new THREE.Color(defaultSpaceColor),
-                    targetColor: new THREE.Color(initialColor),
+                    targetColor: new THREE.Color(initialColor), // Store target color state
                     isNode: true,
                     spawnPosition: data.spawnPosition.clone(),
                 };
@@ -614,12 +602,11 @@
                     const geometry = new THREE.BufferGeometry().setFromPoints(points);
                     const lineMaterial = lineMaterialInactive.clone();
                     const line = new THREE.Line(geometry, lineMaterial);
-                    // Ensure targetColor is initialized correctly
                     line.userData = {
                          startPoint: conceptClusterCenters[i],
                          endPoint: conceptClusterCenters[j],
                          targetOpacity: lineDefaultOpacity,
-                         targetColor: new THREE.Color(lineDefaultColor) // Initialize with default color object
+                         targetColor: new THREE.Color(lineDefaultColor) // Initialize with Color object
                      };
                     scene.add(line);
                     clusterLines.push(line);
@@ -669,12 +656,8 @@
 
             // Event Listeners
             window.addEventListener('resize', onWindowResize, false);
-            // Only track mouse move if not on mobile for hover effects
             window.addEventListener('mousemove', onMouseMove, false);
             canvas.addEventListener('click', onCanvasClick, false);
-             // Add touch listener for mobile interaction if needed, though OrbitControls handles basic touch drag/pinch
-             // canvas.addEventListener('touchstart', onTouchStart, false); // Example if needed
-
             closeAnimationOverlayBtn.addEventListener('click', hideAnimationOverlay, false);
             showDisclaimerLink.addEventListener('click', showDisclaimerOverlay, false);
             closeDisclaimerOverlayBtn.addEventListener('click', hideDisclaimerOverlay, false);
@@ -691,31 +674,26 @@
              camera.aspect = window.innerWidth / window.innerHeight;
              camera.updateProjectionMatrix();
              renderer.setSize(window.innerWidth, window.innerHeight);
-             // *** ADDED: Re-check mobile status on resize ***
-             detectMobile();
+             detectMobile(); // Re-check mobile status
          }
 
         function onMouseMove(event) {
-             // Only update mouse coordinates if not in mobile mode (where hover is less relevant)
              if (!isMobile) {
                  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
                  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
              }
          }
 
-         // *** MODIFIED: Handle click based on mobile/desktop ***
         function onCanvasClick(event) {
             if (animationOverlay.style.display === 'flex' || nodeBeingClicked || disclaimerOverlay.style.display === 'flex') return;
 
             let clickedNodeObject = null;
 
             if (isMobile) {
-                // On mobile, the "click" targets whatever the center reticle is currently intersecting
-                // This object is stored in `intersectedObject` by the continuous `checkIntersections`
+                // Mobile: Use the object currently under the center reticle
                 clickedNodeObject = intersectedObject;
             } else {
-                // On desktop, use the actual mouse click position
-                // Ensure mouse coordinates are updated (redundant if onMouseMove fired, but safe)
+                // Desktop: Use the mouse click position
                 mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
                 mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
                 raycaster.setFromCamera(mouse, camera);
@@ -725,23 +703,17 @@
                 }
             }
 
-            // Perform action if a node was determined to be clicked (either by center reticle or mouse)
+            // Perform action if a node was targeted
             if (clickedNodeObject) {
                 const nodeData = clickedNodeObject.userData;
                 if ((nodeData.type === 'paper' || nodeData.type === 'team') && nodeData.url) {
                     window.open(nodeData.url, '_blank');
                 } else if (nodeData.type === 'concept' && nodeData.sentence) {
-                    // Ensure we don't re-trigger if already animating/clicked
-                    if(nodeBeingClicked !== clickedNodeObject) {
+                    if(nodeBeingClicked !== clickedNodeObject) { // Prevent re-clicking same node while animating/transitioning
                         nodeBeingClicked = clickedNodeObject;
                         clickEffectStartTime = Date.now();
-                        // Trigger visual click effect immediately if desired
-                        // node.scale logic in animate() will handle the visual pulse
-
-                        // Delay showing overlay slightly
                         setTimeout(() => {
-                            // Check if the clicked node is still the one intended after delay
-                            if (nodeBeingClicked === clickedNodeObject) {
+                            if (nodeBeingClicked === clickedNodeObject) { // Check if still the target after delay
                                 showAnimationOverlay(nodeData.label, nodeData.sentence);
                             }
                         }, transitionDelay);
@@ -763,7 +735,7 @@
          }
         function hideAnimationOverlay() {
              animationControl.isCancelled = true; clearTimeout(animationControl.timeoutId); animationOverlay.style.display = 'none'; mainVisualizationDiv.style.display = 'block';
-             nodeBeingClicked = null; // Reset clicked state when closing
+             nodeBeingClicked = null; // Reset clicked state
              startAnimationLoop();
          }
         function showDisclaimerOverlay(event) {
@@ -799,43 +771,37 @@
          }
 
         // --- Core Logic: Intersection Checks ---
-        // *** MODIFIED: Use center screen or mouse based on mobile status ***
         function checkIntersections() {
             let raycastOrigin;
             if (isMobile) {
-                // On mobile, always raycast from the center of the screen
-                raycastOrigin = new THREE.Vector2(0, 0);
+                raycastOrigin = new THREE.Vector2(0, 0); // Center screen for mobile
             } else {
-                // On desktop, use the current mouse position
-                raycastOrigin = mouse;
+                raycastOrigin = mouse; // Mouse position for desktop
             }
 
             raycaster.setFromCamera(raycastOrigin, camera);
-            const intersects = raycaster.intersectObjects(nodes); // Check intersection with all nodes
+            const intersects = raycaster.intersectObjects(nodes);
 
             let newIntersectedObject = null;
             if (intersects.length > 0 && intersects[0].object.userData.isNode) {
                 newIntersectedObject = intersects[0].object;
             }
 
-            // Update info box only if the intersected object changes
             if (intersectedObject !== newIntersectedObject) {
-                intersectedObject = newIntersectedObject; // Update the globally tracked intersected object
+                intersectedObject = newIntersectedObject; // Update tracked intersected object
 
                 if (intersectedObject) {
                     const data = intersectedObject.userData;
                     infoLabel.textContent = data.label;
                     infoDescription.textContent = data.info;
-                    // Update info box style based on node type
-                    infoBox.className = 'hover-' + data.type; // Removes old classes, adds new one
+                    infoBox.className = 'hover-' + data.type; // Set class for hover effect
                     infoBox.style.display = 'block';
                 } else {
-                    // No intersection, hide the info box
                     infoBox.style.display = 'none';
-                    infoBox.className = ''; // Clear specific hover styles
+                    infoBox.className = ''; // Clear hover class
                 }
             }
-        }
+         }
 
 
         // --- Main Animation Loop ---
@@ -845,10 +811,9 @@
             const elapsed = clock.getElapsedTime();
             const now = Date.now();
 
-            controls.update(); // Update camera controls (rotation, zoom)
+            controls.update(); // Update camera controls
 
-            // *** checkIntersections is called continuously to update `intersectedObject` ***
-            checkIntersections(); // Determine which node is currently under the cursor/reticle
+            checkIntersections(); // Update intersected object based on mobile/desktop
 
             // Rotate starfield
             if (stars) {
@@ -857,38 +822,51 @@
             }
 
             const cameraPosition = camera.position;
-            const pausedClusterCenters = new Map();
+            const pausedClusterCenters = new Map(); // Track probes paused at each cluster
 
-            // Team Node Movement & Pause Logic
+            // --- Team Node Movement & Pause Logic (SNAP FIXED) ---
             teamNodes.forEach(teamNode => {
                 const teamData = teamNode.userData;
                 if (!teamData.isMovingToTarget) {
+                    // Node is currently paused
                     const centerKey = teamData.targetClusterCenter.toArray().toString();
                     pausedClusterCenters.set(centerKey, (pausedClusterCenters.get(centerKey) || 0) + 1);
+
+                    // Check if pause is over
                     if (now > teamData.pauseEndTime) {
-                        let newTargetIndex; let currentTargetIndex = conceptClusterCenters.findIndex(center => vectorsAreEqual(center, teamData.targetClusterCenter));
-                        do { newTargetIndex = Math.floor(Math.random() * conceptClusterCenters.length); } while (newTargetIndex === currentTargetIndex && conceptClusterCenters.length > 1);
+                        // Select a new, different target cluster
+                        let newTargetIndex;
+                        let currentTargetIndex = conceptClusterCenters.findIndex(center => vectorsAreEqual(center, teamData.targetClusterCenter));
+                        do {
+                            newTargetIndex = Math.floor(Math.random() * conceptClusterCenters.length);
+                        } while (newTargetIndex === currentTargetIndex && conceptClusterCenters.length > 1);
                         teamData.targetClusterCenter.copy(conceptClusterCenters[newTargetIndex]);
-                        teamData.isMovingToTarget = true;
+                        teamData.isMovingToTarget = true; // Start moving
                     }
                 } else {
+                    // Node is moving towards the target
                     teamNode.position.lerp(teamData.targetClusterCenter, teamMoveSpeed);
+
+                    // Check if close enough to the target
                     if (teamNode.position.distanceTo(teamData.targetClusterCenter) < teamTargetReachedThreshold) {
-                        teamData.isMovingToTarget = false; teamData.pauseEndTime = now + teamPauseDuration;
-                        teamNode.position.copy(teamData.targetClusterCenter);
+                        teamData.isMovingToTarget = false; // Stop moving
+                        teamData.pauseEndTime = now + teamPauseDuration; // Set pause timer
+                        // *** NO LONGER COPYING POSITION - FIXES THE SNAP ***
                     }
                 }
-                // Team Node Scaling
+
+                // Team Node Scaling (Visual effect)
                 const teamOscillation = Math.sin(elapsed * baseAnimFreq * 1.1 + teamData.animOffset) * baseAnimAmpPaperTeam;
                 let teamTargetScale = teamData.baseScale + teamOscillation;
-                const teamDistance = cameraPosition.distanceTo(teamNode.position); const teamDistanceFactor = Math.max(0, 1.0 - teamDistance / distanceScaleFactor);
-                const teamDistanceBonus = maxDistanceScaleBonus * teamDistanceFactor * teamDistanceFactor; teamTargetScale *= (1.0 + teamDistanceBonus);
-                // *** Highlight based on `intersectedObject` ***
-                if (teamNode === intersectedObject) teamTargetScale = 1.3;
+                const teamDistance = cameraPosition.distanceTo(teamNode.position);
+                const teamDistanceFactor = Math.max(0, 1.0 - teamDistance / distanceScaleFactor);
+                const teamDistanceBonus = maxDistanceScaleBonus * teamDistanceFactor * teamDistanceFactor;
+                teamTargetScale *= (1.0 + teamDistanceBonus);
+                if (teamNode === intersectedObject) teamTargetScale = 1.3; // Highlight if hovered/targeted
                 teamNode.scale.lerp(new THREE.Vector3(teamTargetScale, teamTargetScale, teamTargetScale), 0.1);
             });
 
-            // Cluster Line Activation Logic
+            // --- Cluster Line Activation Logic ---
              clusterLines.forEach(line => {
                  const lineData = line.userData;
                  let pausedProbesAtEnds = 0;
@@ -898,68 +876,91 @@
                  pausedProbesAtEnds += pausedClusterCenters.get(endKey) || 0;
 
                  let targetOpacity;
-                 // Ensure targetColor is a Color object before setting/lerping
+                 // Ensure targetColor is a Color object
                  if (!lineData.targetColor) lineData.targetColor = new THREE.Color();
 
                  if (pausedProbesAtEnds > 0) {
                      targetOpacity = Math.min(lineMaxActiveOpacity, lineDefaultOpacity + lineOpacityIncreasePerProbe * pausedProbesAtEnds);
-                     // *** Use the modified lineActiveColor (white) ***
-                     lineData.targetColor.setHex(lineActiveColor);
+                     lineData.targetColor.setHex(lineActiveColor); // Use white for active lines
                  } else {
                      targetOpacity = lineDefaultOpacity;
-                     lineData.targetColor.setHex(lineDefaultColor);
+                     lineData.targetColor.setHex(lineDefaultColor); // Use default gray
                  }
                  lineData.targetOpacity = targetOpacity;
 
+                 // Smoothly transition opacity and color
                  line.material.opacity = THREE.MathUtils.lerp(line.material.opacity, lineData.targetOpacity, lineTransitionSpeed);
                  line.material.color.lerp(lineData.targetColor, lineTransitionSpeed);
              });
 
 
-            // Proximity Color Change & Other Node Updates
-            const activatedNodes = new Set();
-            teamNodes.forEach(teamNode => { otherNodes.forEach(otherNode => { if (teamNode.position.distanceTo(otherNode.position) < proximityThreshold) activatedNodes.add(otherNode); }); });
+            // --- Proximity Color Change & Other Node Updates ---
+            const activatedNodes = new Set(); // Track nodes activated by nearby team probes
+            teamNodes.forEach(teamNode => {
+                 otherNodes.forEach(otherNode => {
+                      if (teamNode.position.distanceTo(otherNode.position) < proximityThreshold) {
+                          activatedNodes.add(otherNode);
+                      }
+                 });
+            });
 
             otherNodes.forEach(node => {
-                const nodeData = node.userData; let targetScale = nodeData.baseScale || 1.0; let isClickEffectActive = false; let finalTargetColor = nodeData.spaceColor.clone(); // Start with space color
+                const nodeData = node.userData;
+                let targetScale = nodeData.baseScale || 1.0;
+                let isClickEffectActive = false;
+                // Start with the base space color, clone to avoid modifying the original
+                let finalTargetColor = nodeData.spaceColor.clone();
 
-                if (activatedNodes.has(node)) finalTargetColor = nodeData.originalColor.clone(); // Use original if activated by proximity
+                // Apply original color if activated by proximity
+                if (activatedNodes.has(node)) {
+                    finalTargetColor = nodeData.originalColor.clone();
+                }
 
-                // Node Movement
-                const moveOffset = new THREE.Vector3( Math.sin(elapsed * nodeMoveFreq * 0.8 + nodeData.animOffset) * nodeMoveAmplitude, Math.cos(elapsed * nodeMoveFreq * 1.2 + nodeData.animOffset) * nodeMoveAmplitude, Math.sin(elapsed * nodeMoveFreq + nodeData.animOffset * 0.5) * nodeMoveAmplitude );
-                const targetPosition = nodeData.spawnPosition.clone().add(moveOffset); node.position.lerp(targetPosition, nodeLerpFactor);
+                // Node Movement (Wiggle)
+                const moveOffset = new THREE.Vector3(
+                    Math.sin(elapsed * nodeMoveFreq * 0.8 + nodeData.animOffset) * nodeMoveAmplitude,
+                    Math.cos(elapsed * nodeMoveFreq * 1.2 + nodeData.animOffset) * nodeMoveAmplitude,
+                    Math.sin(elapsed * nodeMoveFreq + nodeData.animOffset * 0.5) * nodeMoveAmplitude
+                );
+                const targetPosition = nodeData.spawnPosition.clone().add(moveOffset);
+                node.position.lerp(targetPosition, nodeLerpFactor);
 
                 // Base Oscillation & Distance Scaling
-                const animAmp = baseAnimAmpConcept; const oscillation = Math.sin(elapsed * baseAnimFreq + nodeData.animOffset) * animAmp; targetScale += oscillation;
-                const distance = cameraPosition.distanceTo(node.position); const distanceFactor = Math.max(0, 1.0 - distance / distanceScaleFactor); const distanceBonus = maxDistanceScaleBonus * distanceFactor * distanceFactor; targetScale *= (1.0 + distanceBonus);
+                const animAmp = baseAnimAmpConcept; // Could vary per node type if needed
+                const oscillation = Math.sin(elapsed * baseAnimFreq + nodeData.animOffset) * animAmp;
+                targetScale += oscillation;
+                const distance = cameraPosition.distanceTo(node.position);
+                const distanceFactor = Math.max(0, 1.0 - distance / distanceScaleFactor);
+                const distanceBonus = maxDistanceScaleBonus * distanceFactor * distanceFactor;
+                targetScale *= (1.0 + distanceBonus);
 
-                // Click Effect (visual pulse)
+                // Click Effect (Visual pulse)
                 if (node === nodeBeingClicked && nodeData.type === 'concept') {
-                    finalTargetColor = new THREE.Color(clickHighlightColor); // Override color during click pulse
-                    isClickEffectActive = true; let clickScale = 1.0;
+                    finalTargetColor = new THREE.Color(clickHighlightColor); // Click color overrides others
+                    isClickEffectActive = true;
+                    let clickScale = 1.0;
                     if (now < clickEffectStartTime + clickEffectDuration) {
                         const progress = (now - clickEffectStartTime) / clickEffectDuration;
                         clickScale = 1.0 + Math.sin(progress * Math.PI) * 0.5; // Pulse effect
                     } else {
-                        // Reset click state only if overlay isn't showing
+                        // Reset click state only if the overlay isn't active
                         if(animationOverlay.style.display !== 'flex') {
                              nodeBeingClicked = null;
                         }
-                        // Scale returns to normal after effect duration unless highlighted
                     }
-                    targetScale = clickScale; // Apply click pulse scale
+                    targetScale = clickScale; // Apply pulse scale
                 }
 
-                // Hover Effect (based on intersectedObject updated by checkIntersections)
-                // Apply hover effect *after* proximity check and *if not* currently being clicked
+                // Hover Effect (if not being clicked)
                 if (!isClickEffectActive && node === intersectedObject) {
-                    targetScale = 1.3; // Enlarge on hover/reticle focus
+                    targetScale = 1.3; // Enlarge on hover/target
+                    // Apply specific highlight color based on type (overrides proximity color)
                     if (nodeData.type === 'concept') finalTargetColor = new THREE.Color(highlightColor);
                     else if (nodeData.type === 'paper') finalTargetColor = new THREE.Color(paperHighlightColor);
-                     // Team nodes are handled separately above, but could be included here too if needed
+                    // Team nodes highlighting is handled in their own loop
                 }
 
-                // Apply color and scale changes smoothly
+                // Smoothly apply final color and scale
                 node.material.color.lerp(finalTargetColor, colorLerpFactor);
                 node.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
             });
