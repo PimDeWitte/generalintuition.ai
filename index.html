@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MGI - General Intuition </title>
+    <title>MGI - General Intuition (Updated Controls & Style)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -48,7 +48,8 @@
         #info-box {
             top: 20px;
             left: 20px;
-            border: 1px solid #0f0; /* Default highlight */
+            /* UPDATED: Default border white */
+            border: 1px solid #eee;
             color: #eee; /* Default text color */
             max-width: 320px;
             display: none;
@@ -65,10 +66,12 @@
             color: #eee; /* Default header color */
             text-shadow: none;
         }
-        #info-box.hover-concept h3 { color: #0f0; text-shadow: 0 0 3px #0f0; }
+        /* UPDATED: Concept hover uses white highlight */
+        #info-box.hover-concept h3 { color: #fff; text-shadow: 0 0 4px #fff; }
         #info-box.hover-paper h3 { color: #0ff; text-shadow: 0 0 3px #0ff; }
         #info-box.hover-team h3 { color: #ffd700; text-shadow: 0 0 3px #ffd700; }
-        #info-box.hover-concept { border-color: #0f0; }
+        /* UPDATED: Concept hover uses white border */
+        #info-box.hover-concept { border-color: #fff; }
         #info-box.hover-paper { border-color: #0ff; }
         #info-box.hover-team { border-color: #ffd700; }
 
@@ -82,14 +85,15 @@
             padding: 6px 12px;
             text-align: center;
         }
-        /* --- Mobile Reticle (Enlarged) --- */
+        /* --- Mobile Reticle (UPDATED Size) --- */
         #mobile-reticle {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 96px;
-            height: 96px;
+            /* UPDATED: Half size */
+            width: 48px;
+            height: 48px;
             border: 2px solid rgba(255, 255, 255, 0.3); /* Make border less opaque */
             border-radius: 50%;
             pointer-events: none; /* Doesn't interfere with other interactions */
@@ -98,25 +102,28 @@
             box-sizing: border-box;
             transition: border-color 0.2s ease; /* Smooth transition on target lock */
         }
-        /* Style for the inner dot of the reticle (Enlarged) */
+        /* Style for the inner dot of the reticle (UPDATED Size) */
          #mobile-reticle::after {
              content: '';
              position: absolute;
              top: 50%;
              left: 50%;
              transform: translate(-50%, -50%);
-             width: 16px;
-             height: 16px;
+             /* UPDATED: Half size */
+             width: 8px;
+             height: 8px;
              background-color: rgba(255, 255, 255, 0.3); /* Make dot less opaque */
              border-radius: 50%;
              transition: background-color 0.2s ease; /* Smooth transition on target lock */
          }
-         /* Style when reticle is over a target */
+         /* Style when reticle is over a target (UPDATED Color) */
          #mobile-reticle.target-locked {
-             border-color: rgba(0, 255, 0, 0.7); /* Brighter green border */
+             /* UPDATED: White border */
+             border-color: rgba(255, 255, 255, 0.8);
          }
          #mobile-reticle.target-locked::after {
-              background-color: rgba(0, 255, 0, 0.7); /* Brighter green dot */
+              /* UPDATED: White dot */
+              background-color: rgba(255, 255, 255, 0.8);
          }
 
 
@@ -146,18 +153,45 @@
         .network-layer { width: 8px; height: 100%; background: linear-gradient(to bottom, rgba(0, 100, 100, 0.3), rgba(0, 200, 200, 0.6), rgba(0, 100, 100, 0.3)); border-radius: 4px; box-shadow: 0 0 6px rgba(0, 255, 255, 0.4); opacity: 0; animation: fadeInLayer 0.3s forwards; transition: box-shadow 0.1s linear, background 0.1s linear; position: relative; overflow: hidden; }
         .network-layer::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: repeating-linear-gradient( 45deg, rgba(255,255,255,0.0), rgba(255,255,255,0.0) 2px, rgba(255,255,255,0.05) 2px, rgba(255,255,255,0.05) 4px ); opacity: 0; transition: opacity 0.1s linear; }
         .network-layer:nth-child(1) { animation-delay: 0.02s; } .network-layer:nth-child(2) { animation-delay: 0.04s; } .network-layer:nth-child(3) { animation-delay: 0.06s; } .network-layer:nth-child(4) { animation-delay: 0.08s; } .network-layer:nth-child(5) { animation-delay: 0.1s; }
-        .network-layer.active { box-shadow: 0 0 15px #0f0; background: linear-gradient(to bottom, rgba(0, 255, 0, 0.3), rgba(100, 255, 100, 1), rgba(0, 255, 0, 0.3)); }
+        /* UPDATED: Active layer uses white highlight */
+        .network-layer.active {
+            box-shadow: 0 0 15px #fff;
+            background: linear-gradient(to bottom, rgba(200, 200, 200, 0.3), rgba(255, 255, 255, 1), rgba(200, 200, 200, 0.3));
+        }
         .network-layer.active::before { opacity: 0.5; }
         #signal-wave { position: absolute; left: -30px; top: 50%; height: 20px; transform: translateY(-50%); opacity: 0; }
-        .signal-dot-item { position: absolute; width: 5px; height: 5px; background-color: #0f0; border-radius: 50%; box-shadow: 0 0 5px #0f0; }
+        /* UPDATED: Signal dot uses white */
+        .signal-dot-item {
+            position: absolute; width: 5px; height: 5px;
+            background-color: #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 5px #fff;
+        }
         #word-selection-vis { position: absolute; bottom: -15px; left: 50%; transform: translateX(-50%); width: auto; min-width: 120px; padding: 4px; background-color: rgba(0, 0, 0, 0.7); border: 1px solid #444; border-radius: 4px; text-align: center; opacity: 0; transition: opacity 0.1s ease-out; pointer-events: none; display: flex; justify-content: center; align-items: center; gap: 6px; }
         #word-selection-vis.visible { opacity: 1; }
         .prob-word { font-size: 11px; padding: 2px 5px; border-radius: 3px; }
-        .prob-word.selected { color: #0f0; border: 1px solid #0f0; background-color: rgba(0, 255, 0, 0.2); font-weight: 700; }
+        /* UPDATED: Selected word uses white */
+        .prob-word.selected {
+            color: #fff;
+            border: 1px solid #fff;
+            background-color: rgba(255, 255, 255, 0.2);
+            font-weight: 700;
+        }
         .prob-word.alternative { color: #888; border: 1px solid #444; background-color: rgba(80, 80, 80, 0.2); opacity: 0.7; }
         #overlay-output-container { width: 90%; max-width: 700px; min-height: 60px; text-align: left; border: 1px dashed #0ff; padding: 12px; border-radius: 5px; background-color: rgba(0, 50, 50, 0.3); margin-top: 15px; }
-        #overlay-output { font-size: 15px; color: #0f0; text-shadow: 0 0 5px #0f0; line-height: 1.7; }
-        #overlay-output .current-word { background-color: rgba(0, 255, 0, 0.3); padding: 0 2px; border-radius: 2px; animation: fadeHighlight 0.5s forwards; }
+        /* UPDATED: Output text uses white */
+        #overlay-output {
+            font-size: 15px;
+            color: #eee; /* Use slightly off-white for readability */
+            text-shadow: none; /* Removed green shadow */
+            line-height: 1.7;
+        }
+        /* UPDATED: Current word highlight uses white */
+        #overlay-output .current-word {
+             background-color: rgba(255, 255, 255, 0.3);
+             padding: 0 2px; border-radius: 2px;
+             animation: fadeHighlight 0.5s forwards;
+        }
         #overlay-explanation { color: #0ff; font-size: 12px; margin-top: 20px; max-width: 600px; text-align: center; line-height: 1.6; text-decoration: underline; }
         #overlay-explanation a { color: #0ff; text-decoration: none;}
         #overlay-explanation a:hover { color: #3ff; }
@@ -220,7 +254,11 @@
         /* --- Animations --- */
         @keyframes fadeInLayer { from { opacity: 0; transform: scaleY(0.5); } to { opacity: 1; transform: scaleY(1); } }
         @keyframes nodeClickFlash { 0%, 100% { transform: scale(1.0); } 50% { transform: scale(1.5); } }
-        @keyframes fadeHighlight { from { background-color: rgba(0, 255, 0, 0.3); } to { background-color: transparent; } }
+        /* UPDATED: Highlight animation uses white */
+        @keyframes fadeHighlight {
+            from { background-color: rgba(255, 255, 255, 0.3); }
+            to { background-color: transparent; }
+        }
     </style>
 </head>
 <body class="font-sans">
@@ -278,7 +316,8 @@
         const teamNodeSize = 0.6; // Team same size as papers
         const paperNodeColor = 0x00ffff; // Cyan
         const teamNodeColor = 0xffd700; // Gold
-        const highlightColor = 0x00ff00; // Green (Concept hover)
+        // UPDATED: Concept hover highlight is now white
+        const highlightColor = 0xffffff; // White (Concept hover)
         const paperHighlightColor = 0x00ffff; // Cyan (Paper hover - same as base)
         const teamHighlightColor = 0xffd700; // Gold (Team hover - same as base)
         const clickHighlightColor = 0xffffff; // White (Concept click)
@@ -967,7 +1006,7 @@
             startAnimationLoop();
          }
 
-        // --- FASTER LLM Animation Step --- (Unchanged)
+        // --- FASTER LLM Animation Step --- (Unchanged logic, styling updated via CSS)
         async function animateLLMStep() {
              if (animationControl.isCancelled) return;
              if (animationControl.wordIndex >= animationControl.words.length) {
@@ -993,18 +1032,20 @@
          }
 
         // --- Core Logic: Intersection Checks ---
-        // Uses screen-space check (closest to edge) for mobile, raycaster for desktop
+        // UPDATED: Mobile logic selects node closest to center AND camera within radius
         function checkIntersections() {
             let newIntersectedObject = null; // Node that becomes the intersectedObject
 
             if (isMobile) {
-                // --- Mobile: Screen-Space Check (Closest to Edge) ---
-                const reticleRadiusPixels = 96 / 2;
+                // --- Mobile: Screen-Space Check (Closest to Center & Camera) ---
+                // UPDATED: Use smaller radius matching CSS
+                const reticleRadiusPixels = 48 / 2;
                 const reticleRadiusNDC = reticleRadiusPixels / (window.innerHeight / 2);
                 const reticleRadiusNDCSq = reticleRadiusNDC * reticleRadiusNDC;
 
                 let bestNode = null;
-                let minDistToEdge = reticleRadiusNDC + 0.01; // Find node closest to edge
+                let minScreenDistSq = reticleRadiusNDCSq; // Find node closest to center (0,0)
+                let minDepth = Infinity; // Among closest nodes, find the nearest (smallest Z)
 
                 const nodeWorldPos = new THREE.Vector3(); // Reuse vector for performance
                 const nodeScreenPos = new THREE.Vector3(); // Reuse vector for performance
@@ -1023,19 +1064,24 @@
 
                         // Check if node center is within the reticle radius squared
                         if (screenDistSq < reticleRadiusNDCSq) {
-                             const screenDist = Math.sqrt(screenDistSq);
-                             // Calculate how close the node's center is to the edge of the circle
-                             const distToEdge = Math.abs(screenDist - reticleRadiusNDC);
-
-                             // If this node is closer to the edge than the current best, select it
-                             if (distToEdge < minDistToEdge) {
-                                 minDistToEdge = distToEdge;
-                                 bestNode = node;
-                             }
+                            // UPDATED Logic: Prioritize closeness to center, then closeness to camera (depth)
+                            if (screenDistSq < minScreenDistSq) {
+                                // This node is closer to the center than the current best
+                                minScreenDistSq = screenDistSq;
+                                minDepth = nodeScreenPos.z;
+                                bestNode = node;
+                            } else if (screenDistSq === minScreenDistSq) {
+                                // If equidistant to center, pick the one closer to the camera
+                                if (nodeScreenPos.z < minDepth) {
+                                    minDepth = nodeScreenPos.z;
+                                    bestNode = node;
+                                }
+                            }
+                            // If it's further from the center than the current best, ignore it
                         }
                     }
                 });
-                newIntersectedObject = bestNode; // The node whose center is closest to the reticle edge
+                newIntersectedObject = bestNode; // The node closest to center (and camera as tie-breaker) within radius
 
             } else {
                 // --- Desktop: Raycaster Check ---
@@ -1063,7 +1109,7 @@
                     const data = intersectedObject.userData;
                     infoLabel.textContent = data.label;
                     infoDescription.textContent = data.info;
-                    infoBox.className = 'hover-' + data.type;
+                    infoBox.className = 'hover-' + data.type; // Class sets border/h3 color via CSS
                     infoBox.style.display = 'block';
                 } else {
                     infoBox.style.display = 'none';
@@ -1102,10 +1148,7 @@
                     // Only move if not selected
                     if (!teamData.isMovingToTarget) {
                         // Node is PAUSED (at a paper node position)
-                        // Use the target position vector directly for the map key (requires exact match)
-                        // Alternatively, convert to string, but direct object reference might be okay if vectors aren't cloned elsewhere
-                        const targetKey = teamData.targetClusterCenter; // Use the vector object itself as key (careful!)
-                        // Or safer: const targetKey = teamData.targetClusterCenter.toArray().toString();
+                        const targetKey = teamData.targetClusterCenter;
                         pausedPaperTargets.set(targetKey, (pausedPaperTargets.get(targetKey) || 0) + 1);
 
                         // Check if pause duration is over
@@ -1178,8 +1221,8 @@
 
                 teamNode.scale.lerp(new THREE.Vector3(teamTargetScale, teamTargetScale, teamTargetScale), 0.1);
                 // Set base color (team color) - transparency is handled by material opacity
-                teamNode.material.color.setHex(teamNodeColor);
-                // Ensure opacity is set correctly (might change if hover/click logic modifies it later)
+                teamNode.material.color.setHex(teamNodeColor); // Team nodes always gold
+                // Ensure opacity is set correctly
                 teamNode.material.opacity = nodeOpacity;
             });
 
@@ -1263,7 +1306,7 @@
 
                 // Click Effect (if selected)
                 if (isSelected) {
-                    // Use specific click color only for concepts, otherwise just pulse
+                    // Use specific click color only for concepts, otherwise use original activated color
                     finalTargetColor = (nodeData.type === 'concept') ? new THREE.Color(clickHighlightColor) : nodeData.originalColor.clone();
 
                     let clickScale = 1.0;
@@ -1283,15 +1326,15 @@
                 else if (node === intersectedObject) {
                     targetScale = 1.3; // Enlarge on hover/target
                     // Apply specific highlight color based on type (overrides proximity color)
-                    if (nodeData.type === 'concept') finalTargetColor = new THREE.Color(highlightColor);
-                    else if (nodeData.type === 'paper') finalTargetColor = new THREE.Color(paperHighlightColor);
-                    // Team node highlighting is handled in their own loop
+                    if (nodeData.type === 'concept') finalTargetColor = new THREE.Color(highlightColor); // Now white
+                    else if (nodeData.type === 'paper') finalTargetColor = new THREE.Color(paperHighlightColor); // Stays cyan
+                    // Team node highlighting (gold) is handled in their own loop
                 }
 
                 // Smoothly transition color and scale
                 node.material.color.lerp(finalTargetColor, colorLerpFactor);
                 node.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
-                // Ensure opacity is set correctly (might change if hover/click logic modifies it later)
+                // Ensure opacity is set correctly
                 node.material.opacity = nodeOpacity;
             });
 
