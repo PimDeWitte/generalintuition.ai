@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MGI - General Intuition</title>
+    <title>MGI - General Intuition </title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -182,7 +182,7 @@
             color: #0ff; font-size: 20px; margin-bottom: 25px; text-align: center; text-shadow: 0 0 5px #0ff; letter-spacing: 1px;
         }
         #disclaimer-content h3 {
-            font-family: 'Press Start 2P', cursive;
+             font-family: 'Press Start 2P', cursive;
             color: #eee; font-size: 15px; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px dashed #555; padding-bottom: 8px; letter-spacing: 0.5px;
             display: inline-block; /* Keep border only under text */
             width: auto; /* Adjust width */
@@ -214,7 +214,7 @@
          #disclaimer-content .email-link:hover {
             text-decoration: underline;
             color: #3ff;
-        }
+         }
 
 
         /* --- Animations --- */
@@ -336,6 +336,9 @@
         // Mobile Click Prevention
         const mobileClickTimeThreshold = 200; // Clicks within this ms of touchstart are ignored
 
+        // NEW: Material Settings
+        const nodeOpacity = 0.75; // Base opacity for translucent nodes
+
         // Concept Color Palette (for proximity activation)
         const conceptColorPalette = [
             0x4a90e2, 0xbd10e0, 0xaaaaaa, 0x7ed321, 0xf5a623, 0x50e3c2, 0xe04457,
@@ -361,43 +364,43 @@
         // --- Node Data ---
         // Original categories data (used only to get concept labels/info)
         const categories = {
-             "Perception": { labels: ["Sensor Fusion", "Proprioception", "Visual Odometry", "SLAM", "Object Recognition", "Depth Sensing", "Tactile Sensing", "Auditory Scene"], infoPrefix: "Sensing:", sentencePrefix: "Making sense of the world involves techniques like Sensor Fusion, Proprioception, and Visual Odometry." },
-             "Action/Control": { labels: ["Reinforcement Learning", "Inverse Kinematics", "PID Control", "Motion Planning", "Grasping", "Locomotion", "Trajectory Optimization", "Imitation Learning"], infoPrefix: "Acting:", sentencePrefix: "Generating physical behavior relies on methods such as Reinforcement Learning, Inverse Kinematics, and Motion Planning." },
-             "Cognition/Planning": { labels: ["Task Planning", "World Model", "Predictive Coding", "Affordance Theory", "Symbolic Reasoning", "Goal Setting", "Decision Making", "Memory Systems"], infoPrefix: "Thinking:", sentencePrefix: "Formulating plans for interaction involves concepts like Task Planning, World Models, and Symbolic Reasoning." },
-             "Embodiment": { labels: ["Morphology", "Physical Interaction", "Degrees of Freedom", "Actuators", "Simulation Gap", "Embodied Cognition", "Soft Robotics", "Bio-inspiration"], infoPrefix: "Form:", sentencePrefix: "The physical form and its interaction capabilities are defined by aspects such as Morphology, Degrees of Freedom, and Actuators." },
-             "Core AI/ML": { labels: ["Neural Network", "Transformer", "Attention Mechanism", "Backpropagation", "Gradient Descent", "Latent Space", "CNN", "RNN", "GAN"], infoPrefix: "Algorithms:", sentencePrefix: "Extracting patterns from data often utilizes core AI/ML techniques like Neural Networks, Transformers, and Backpropagation." },
-             "Learning Paradigms": { labels: ["Supervised", "Unsupervised", "Self-Supervised", "Continual Learning", "Meta-Learning", "Transfer Learning", "Active Learning", "Online Learning"], infoPrefix: "Adaptation:", sentencePrefix: "Improving capabilities often involves different learning paradigms such as Supervised, Unsupervised, and Self-Supervised learning." },
-             "Human-Robot Interaction": { labels: ["Social Robotics", "Trust in Automation", "Shared Autonomy", "Teleoperation", "Gesture Recognition", "Natural Language Interface", "Explainable AI (XAI)"], infoPrefix: "Collaboration:", sentencePrefix: "Facilitating human-robot collaboration relies on concepts like Social Robotics, Trust in Automation, and Shared Autonomy." },
-             "Robotic Manipulation": { labels: ["Dexterous Manipulation", "Force Control", "Assembly Tasks", "In-Hand Manipulation", "Regrasping", "Compliant Control", "Peg-in-Hole"], infoPrefix: "Handling:", sentencePrefix: "Physically engaging with objects requires capabilities such as Dexterous Manipulation, Force Control, and Assembly Task execution." },
-             "Navigation & Mapping": { labels: ["Path Planning", "Global Localization", "Topological Maps", "Grid Maps", "Exploration Algorithms", "Multi-Agent Path Finding", "Semantic Mapping"], infoPrefix: "Movement:", sentencePrefix: "Moving effectively through environments depends on techniques like Path Planning, Global Localization, and various Mapping strategies." },
-             "Computer Vision": { labels: ["Image Segmentation", "Pose Estimation", "Scene Understanding", "3D Reconstruction", "Optical Flow", "Feature Detection", "Video Analysis"], infoPrefix: "Seeing:", sentencePrefix: "Interpreting visual input often involves Computer Vision techniques such as Image Segmentation, Pose Estimation, and Scene Understanding." },
-             "Natural Language Processing": { labels: ["Language Models (LLMs)", "Sentiment Analysis", "Machine Translation", "Question Answering", "Text Summarization", "Named Entity Recognition", "Embeddings"], infoPrefix: "Language:", sentencePrefix: "Grounding communication often involves Natural Language Processing methods like Language Models (LLMs), Sentiment Analysis, and Machine Translation." },
-             "Knowledge Representation": { labels: ["Ontologies", "Knowledge Graphs", "Logical Inference", "Semantic Web", "Rule-Based Systems", "Description Logics", "Common Sense Reasoning"], infoPrefix: "Knowledge:", sentencePrefix: "Structuring world knowledge utilizes methods such as Ontologies, Knowledge Graphs, and Logical Inference." },
-             "Optimization Methods": { labels: ["Gradient-Based Opt.", "Evolutionary Algorithms", "Bayesian Optimization", "Convex Optimization", "Integer Programming", "Search Algorithms (A*, BFS)"], infoPrefix: "Optimizing:", sentencePrefix: "Finding optimal solutions or sequences often involves Optimization Methods like Gradient-Based Optimization, Evolutionary Algorithms, and Search Algorithms." },
-             "Simulation & Modeling": { labels: ["Physics Engines", "Digital Twins", "System Identification", "Agent-Based Modeling", "Finite Element Analysis", "Sim-to-Real Transfer"], infoPrefix: "Modeling:", sentencePrefix: "Anticipating system behavior and consequences often uses Simulation & Modeling tools like Physics Engines, Digital Twins, and System Identification." },
-             "Cognitive Architectures": { labels: ["SOAR", "ACT-R", "Connectionism", "Symbolic Systems", "Hybrid Architectures", "Developmental Robotics", "Modular Architectures"], infoPrefix: "Mind Models:", sentencePrefix: "Integrating diverse cognitive capabilities often relies on Cognitive Architectures such as SOAR, ACT-R, and Hybrid Systems." },
-             "Neuroscience Inspiration": { labels: ["Spiking Neural Nets", "Hebbian Learning", "Hippocampal Models", "Cortical Columns", "Neural Plasticity", "Motor Cortex Models"], infoPrefix: "Brain-Inspired:", sentencePrefix: "Drawing inspiration from biology involves studying mechanisms like Spiking Neural Networks, Hebbian Learning, and Neural Plasticity." },
-             "Philosophy of Mind": { labels: ["Consciousness", "Qualia", "Intentionality", "Free Will", "Mind-Body Problem", "Embodied Mind Thesis", "Extended Mind"], infoPrefix: "Mind Concepts:", sentencePrefix: "Exploring fundamental questions about mind and agency involves concepts like Consciousness, Intentionality, and the Mind-Body Problem." },
-             "Ethics & Safety": { labels: ["AI Alignment", "Value Learning", "Bias Detection", "Fairness Metrics", "Robustness", "Interpretability", "Accountability"], infoPrefix: "Safety:", sentencePrefix: "Ensuring safe, reliable, and ethical AI behavior involves addressing areas like AI Alignment, Value Learning, Bias Detection, and Robustness." },
-             "Multi-Agent Systems": { labels: ["Coordination", "Cooperation", "Competition", "Swarm Intelligence", "Distributed Control", "Negotiation"], infoPrefix: "Groups:", sentencePrefix: "Coordinating multiple interacting agents requires techniques for Coordination, Cooperation, Competition, and Swarm Intelligence." },
-             "Probabilistic Methods": { labels: ["Bayesian Networks", "Kalman Filters", "Particle Filters", "Gaussian Processes", "Markov Models (HMMs)", "Probabilistic Programming"], infoPrefix: "Uncertainty:", sentencePrefix: "Handling uncertainty and noisy data often involves Probabilistic Methods like Bayesian Networks, Kalman Filters, and Markov Models." },
-             "Geometric Methods": { labels: ["Lie Groups (SE3)", "Manifold Learning", "Computational Geometry", "Topology", "Differential Geometry", "Configuration Space"], infoPrefix: "Geometry:", sentencePrefix: "Reasoning about spatial relationships, configurations, and transformations often uses Geometric Methods including Lie Groups, Manifold Learning, and Computational Geometry." },
-             "Information Theory": { labels: ["Entropy", "Mutual Information", "KL Divergence", "Compression", "Channel Capacity", "Coding Theory"], infoPrefix: "Information:", sentencePrefix: "Quantifying information, uncertainty, and communication efficiency uses concepts from Information Theory such as Entropy, Mutual Information, and KL Divergence." },
-             "Control Theory": { labels: ["Linear Control", "Nonlinear Control", "Adaptive Control", "Optimal Control", "Robust Control", "Stochastic Control"], infoPrefix: "Dynamics:", sentencePrefix: "Achieving stable and desired system behavior often requires principles from Control Theory, including Linear Control, Adaptive Control, and Optimal Control." },
-             "Hardware & Sensors": { labels: ["LIDAR", "IMU", "Cameras", "Force Sensors", "Encoders", "Microcontrollers", "FPGAs", "GPUs"], infoPrefix: "Hardware:", sentencePrefix: "The physical interface for robotic systems includes Hardware & Sensors like LIDAR, IMUs, Cameras, and processing units such as GPUs." },
-             "Data Structures & Algo": { labels: ["Graphs", "Trees", "Hash Tables", "Sorting", "Dynamic Programming", "Complexity Theory"], infoPrefix: "Computation:", sentencePrefix: "Efficient computation and data management relies on fundamental Data Structures & Algorithms like Graphs, Trees, Sorting, and Dynamic Programming." },
-             "Quantum Computing": { labels: ["Qubits", "Superposition", "Entanglement", "Quantum Gates", "Quantum Algorithms", "Quantum ML"], infoPrefix: "Quantum:", sentencePrefix: "Exploring future computational paradigms involves understanding Quantum Computing concepts such as Qubits, Superposition, Entanglement, and Quantum Algorithms." },
-             "Biologically Plausible Learning": { labels: ["Synaptic Plasticity", "Neuromodulation", "Homeostasis", "Local Learning Rules", "Spike-Timing-Dependent Plasticity (STDP)"], infoPrefix: "Bio Learning:", sentencePrefix: "Developing learning mechanisms inspired by biology involves exploring concepts like Synaptic Plasticity, Neuromodulation, and Spike-Timing-Dependent Plasticity (STDP)." },
-             "Developmental AI": { labels: ["Intrinsic Motivation", "Curiosity-Driven Learning", "Sensorimotor Stages", "Affordance Learning", "Skill Acquisition"], infoPrefix: "Growth:", sentencePrefix: "Acquiring skills progressively, akin to natural development, involves concepts like Intrinsic Motivation, Curiosity-Driven Learning, and Sensorimotor Stages." },
-             "Causality": { labels: ["Causal Inference", "Structural Causal Models", "Do-Calculus", "Counterfactuals", "Intervention"], infoPrefix: "Cause/Effect:", sentencePrefix: "Understanding cause-and-effect relationships and action outcomes requires reasoning about Causality using tools like Causal Inference, Structural Causal Models, and Counterfactuals." },
-             "Theory of Computation": { labels: ["Turing Machines", "Computability", "Complexity Classes (P vs NP)", "Automata Theory", "Formal Languages"], infoPrefix: "Computation Theory:", sentencePrefix: "Understanding the fundamental limits and capabilities of computation relates to the Theory of Computation, including concepts like Turing Machines, Computability, and Complexity Classes." },
-              "Cybernetics": { labels: ["Feedback Loops", "Control Systems", "Communication Theory", "Self-Regulation", "Homeostasis (biological)"], infoPrefix: "Systems:", sentencePrefix: "Understanding systems that maintain stability and achieve goals through feedback involves principles of Cybernetics, such as Feedback Loops, Control Systems, and Self-Regulation." },
-              "Spacecraft Operations": { labels: ["Asteroid Navigation", "Orbital Docking", "Deep Space Probe", "Fleet Coordination", "Emergency Maneuvers", "Resource Scanning", "Interstellar Travel", "Lander Control"], infoPrefix: "Space Ops:", sentencePrefix: "Autonomous control in space involves complex tasks like Asteroid Navigation, Orbital Docking, Deep Space Probe management, and Lander Control." },
-              "Human Intuition": { labels: ["Gut Feeling", "Implicit Learning", "Heuristics", "Expert Judgment", "Analogical Reasoning", "Emotional Intelligence"], infoPrefix: "Human Intuition:", sentencePrefix: "Understanding human cognition involves exploring phenomena like Gut Feelings, Implicit Learning, Heuristics, and Expert Judgment." },
-              "Machine Intuition": { labels: ["Emergent Behavior", "Subsymbolic Reasoning", "Latent Representations", "Policy Gradients (RL)", "Generative Models", "Few-Shot Adaptation"], infoPrefix: "Machine Intuition:", sentencePrefix: "Developing AI capable of intuitive-like responses involves fostering Emergent Behavior, Subsymbolic Reasoning, and leveraging Latent Representations from models like Policy Gradients and Generative Models." },
+             "Perception": { labels: ["Sensor Fusion", "Proprioception", "Visual Odometry", "SLAM", "Object Recognition", "Depth Sensing", "Tactile Sensing", "Auditory Scene"], infoPrefix: "Sensing:", sentencePrefix: "Making sense of the world involves techniques like Sensor Fusion, Proprioception, and Visual Odometry." },
+             "Action/Control": { labels: ["Reinforcement Learning", "Inverse Kinematics", "PID Control", "Motion Planning", "Grasping", "Locomotion", "Trajectory Optimization", "Imitation Learning"], infoPrefix: "Acting:", sentencePrefix: "Generating physical behavior relies on methods such as Reinforcement Learning, Inverse Kinematics, and Motion Planning." },
+             "Cognition/Planning": { labels: ["Task Planning", "World Model", "Predictive Coding", "Affordance Theory", "Symbolic Reasoning", "Goal Setting", "Decision Making", "Memory Systems"], infoPrefix: "Thinking:", sentencePrefix: "Formulating plans for interaction involves concepts like Task Planning, World Models, and Symbolic Reasoning." },
+             "Embodiment": { labels: ["Morphology", "Physical Interaction", "Degrees of Freedom", "Actuators", "Simulation Gap", "Embodied Cognition", "Soft Robotics", "Bio-inspiration"], infoPrefix: "Form:", sentencePrefix: "The physical form and its interaction capabilities are defined by aspects such as Morphology, Degrees of Freedom, and Actuators." },
+             "Core AI/ML": { labels: ["Neural Network", "Transformer", "Attention Mechanism", "Backpropagation", "Gradient Descent", "Latent Space", "CNN", "RNN", "GAN"], infoPrefix: "Algorithms:", sentencePrefix: "Extracting patterns from data often utilizes core AI/ML techniques like Neural Networks, Transformers, and Backpropagation." },
+             "Learning Paradigms": { labels: ["Supervised", "Unsupervised", "Self-Supervised", "Continual Learning", "Meta-Learning", "Transfer Learning", "Active Learning", "Online Learning"], infoPrefix: "Adaptation:", sentencePrefix: "Improving capabilities often involves different learning paradigms such as Supervised, Unsupervised, and Self-Supervised learning." },
+             "Human-Robot Interaction": { labels: ["Social Robotics", "Trust in Automation", "Shared Autonomy", "Teleoperation", "Gesture Recognition", "Natural Language Interface", "Explainable AI (XAI)"], infoPrefix: "Collaboration:", sentencePrefix: "Facilitating human-robot collaboration relies on concepts like Social Robotics, Trust in Automation, and Shared Autonomy." },
+             "Robotic Manipulation": { labels: ["Dexterous Manipulation", "Force Control", "Assembly Tasks", "In-Hand Manipulation", "Regrasping", "Compliant Control", "Peg-in-Hole"], infoPrefix: "Handling:", sentencePrefix: "Physically engaging with objects requires capabilities such as Dexterous Manipulation, Force Control, and Assembly Task execution." },
+             "Navigation & Mapping": { labels: ["Path Planning", "Global Localization", "Topological Maps", "Grid Maps", "Exploration Algorithms", "Multi-Agent Path Finding", "Semantic Mapping"], infoPrefix: "Movement:", sentencePrefix: "Moving effectively through environments depends on techniques like Path Planning, Global Localization, and various Mapping strategies." },
+             "Computer Vision": { labels: ["Image Segmentation", "Pose Estimation", "Scene Understanding", "3D Reconstruction", "Optical Flow", "Feature Detection", "Video Analysis"], infoPrefix: "Seeing:", sentencePrefix: "Interpreting visual input often involves Computer Vision techniques such as Image Segmentation, Pose Estimation, and Scene Understanding." },
+             "Natural Language Processing": { labels: ["Language Models (LLMs)", "Sentiment Analysis", "Machine Translation", "Question Answering", "Text Summarization", "Named Entity Recognition", "Embeddings"], infoPrefix: "Language:", sentencePrefix: "Grounding communication often involves Natural Language Processing methods like Language Models (LLMs), Sentiment Analysis, and Machine Translation." },
+             "Knowledge Representation": { labels: ["Ontologies", "Knowledge Graphs", "Logical Inference", "Semantic Web", "Rule-Based Systems", "Description Logics", "Common Sense Reasoning"], infoPrefix: "Knowledge:", sentencePrefix: "Structuring world knowledge utilizes methods such as Ontologies, Knowledge Graphs, and Logical Inference." },
+             "Optimization Methods": { labels: ["Gradient-Based Opt.", "Evolutionary Algorithms", "Bayesian Optimization", "Convex Optimization", "Integer Programming", "Search Algorithms (A*, BFS)"], infoPrefix: "Optimizing:", sentencePrefix: "Finding optimal solutions or sequences often involves Optimization Methods like Gradient-Based Optimization, Evolutionary Algorithms, and Search Algorithms." },
+             "Simulation & Modeling": { labels: ["Physics Engines", "Digital Twins", "System Identification", "Agent-Based Modeling", "Finite Element Analysis", "Sim-to-Real Transfer"], infoPrefix: "Modeling:", sentencePrefix: "Anticipating system behavior and consequences often uses Simulation & Modeling tools like Physics Engines, Digital Twins, and System Identification." },
+             "Cognitive Architectures": { labels: ["SOAR", "ACT-R", "Connectionism", "Symbolic Systems", "Hybrid Architectures", "Developmental Robotics", "Modular Architectures"], infoPrefix: "Mind Models:", sentencePrefix: "Integrating diverse cognitive capabilities often relies on Cognitive Architectures such as SOAR, ACT-R, and Hybrid Systems." },
+             "Neuroscience Inspiration": { labels: ["Spiking Neural Nets", "Hebbian Learning", "Hippocampal Models", "Cortical Columns", "Neural Plasticity", "Motor Cortex Models"], infoPrefix: "Brain-Inspired:", sentencePrefix: "Drawing inspiration from biology involves studying mechanisms like Spiking Neural Networks, Hebbian Learning, and Neural Plasticity." },
+             "Philosophy of Mind": { labels: ["Consciousness", "Qualia", "Intentionality", "Free Will", "Mind-Body Problem", "Embodied Mind Thesis", "Extended Mind"], infoPrefix: "Mind Concepts:", sentencePrefix: "Exploring fundamental questions about mind and agency involves concepts like Consciousness, Intentionality, and the Mind-Body Problem." },
+             "Ethics & Safety": { labels: ["AI Alignment", "Value Learning", "Bias Detection", "Fairness Metrics", "Robustness", "Interpretability", "Accountability"], infoPrefix: "Safety:", sentencePrefix: "Ensuring safe, reliable, and ethical AI behavior involves addressing areas like AI Alignment, Value Learning, Bias Detection, and Robustness." },
+             "Multi-Agent Systems": { labels: ["Coordination", "Cooperation", "Competition", "Swarm Intelligence", "Distributed Control", "Negotiation"], infoPrefix: "Groups:", sentencePrefix: "Coordinating multiple interacting agents requires techniques for Coordination, Cooperation, Competition, and Swarm Intelligence." },
+             "Probabilistic Methods": { labels: ["Bayesian Networks", "Kalman Filters", "Particle Filters", "Gaussian Processes", "Markov Models (HMMs)", "Probabilistic Programming"], infoPrefix: "Uncertainty:", sentencePrefix: "Handling uncertainty and noisy data often involves Probabilistic Methods like Bayesian Networks, Kalman Filters, and Markov Models." },
+             "Geometric Methods": { labels: ["Lie Groups (SE3)", "Manifold Learning", "Computational Geometry", "Topology", "Differential Geometry", "Configuration Space"], infoPrefix: "Geometry:", sentencePrefix: "Reasoning about spatial relationships, configurations, and transformations often uses Geometric Methods including Lie Groups, Manifold Learning, and Computational Geometry." },
+             "Information Theory": { labels: ["Entropy", "Mutual Information", "KL Divergence", "Compression", "Channel Capacity", "Coding Theory"], infoPrefix: "Information:", sentencePrefix: "Quantifying information, uncertainty, and communication efficiency uses concepts from Information Theory such as Entropy, Mutual Information, and KL Divergence." },
+             "Control Theory": { labels: ["Linear Control", "Nonlinear Control", "Adaptive Control", "Optimal Control", "Robust Control", "Stochastic Control"], infoPrefix: "Dynamics:", sentencePrefix: "Achieving stable and desired system behavior often requires principles from Control Theory, including Linear Control, Adaptive Control, and Optimal Control." },
+             "Hardware & Sensors": { labels: ["LIDAR", "IMU", "Cameras", "Force Sensors", "Encoders", "Microcontrollers", "FPGAs", "GPUs"], infoPrefix: "Hardware:", sentencePrefix: "The physical interface for robotic systems includes Hardware & Sensors like LIDAR, IMUs, Cameras, and processing units such as GPUs." },
+             "Data Structures & Algo": { labels: ["Graphs", "Trees", "Hash Tables", "Sorting", "Dynamic Programming", "Complexity Theory"], infoPrefix: "Computation:", sentencePrefix: "Efficient computation and data management relies on fundamental Data Structures & Algorithms like Graphs, Trees, Sorting, and Dynamic Programming." },
+             "Quantum Computing": { labels: ["Qubits", "Superposition", "Entanglement", "Quantum Gates", "Quantum Algorithms", "Quantum ML"], infoPrefix: "Quantum:", sentencePrefix: "Exploring future computational paradigms involves understanding Quantum Computing concepts such as Qubits, Superposition, Entanglement, and Quantum Algorithms." },
+             "Biologically Plausible Learning": { labels: ["Synaptic Plasticity", "Neuromodulation", "Homeostasis", "Local Learning Rules", "Spike-Timing-Dependent Plasticity (STDP)"], infoPrefix: "Bio Learning:", sentencePrefix: "Developing learning mechanisms inspired by biology involves exploring concepts like Synaptic Plasticity, Neuromodulation, and Spike-Timing-Dependent Plasticity (STDP)." },
+             "Developmental AI": { labels: ["Intrinsic Motivation", "Curiosity-Driven Learning", "Sensorimotor Stages", "Affordance Learning", "Skill Acquisition"], infoPrefix: "Growth:", sentencePrefix: "Acquiring skills progressively, akin to natural development, involves concepts like Intrinsic Motivation, Curiosity-Driven Learning, and Sensorimotor Stages." },
+             "Causality": { labels: ["Causal Inference", "Structural Causal Models", "Do-Calculus", "Counterfactuals", "Intervention"], infoPrefix: "Cause/Effect:", sentencePrefix: "Understanding cause-and-effect relationships and action outcomes requires reasoning about Causality using tools like Causal Inference, Structural Causal Models, and Counterfactuals." },
+             "Theory of Computation": { labels: ["Turing Machines", "Computability", "Complexity Classes (P vs NP)", "Automata Theory", "Formal Languages"], infoPrefix: "Computation Theory:", sentencePrefix: "Understanding the fundamental limits and capabilities of computation relates to the Theory of Computation, including concepts like Turing Machines, Computability, and Complexity Classes." },
+              "Cybernetics": { labels: ["Feedback Loops", "Control Systems", "Communication Theory", "Self-Regulation", "Homeostasis (biological)"], infoPrefix: "Systems:", sentencePrefix: "Understanding systems that maintain stability and achieve goals through feedback involves principles of Cybernetics, such as Feedback Loops, Control Systems, and Self-Regulation." },
+              "Spacecraft Operations": { labels: ["Asteroid Navigation", "Orbital Docking", "Deep Space Probe", "Fleet Coordination", "Emergency Maneuvers", "Resource Scanning", "Interstellar Travel", "Lander Control"], infoPrefix: "Space Ops:", sentencePrefix: "Autonomous control in space involves complex tasks like Asteroid Navigation, Orbital Docking, Deep Space Probe management, and Lander Control." },
+              "Human Intuition": { labels: ["Gut Feeling", "Implicit Learning", "Heuristics", "Expert Judgment", "Analogical Reasoning", "Emotional Intelligence"], infoPrefix: "Human Intuition:", sentencePrefix: "Understanding human cognition involves exploring phenomena like Gut Feelings, Implicit Learning, Heuristics, and Expert Judgment." },
+              "Machine Intuition": { labels: ["Emergent Behavior", "Subsymbolic Reasoning", "Latent Representations", "Policy Gradients (RL)", "Generative Models", "Few-Shot Adaptation"], infoPrefix: "Machine Intuition:", sentencePrefix: "Developing AI capable of intuitive-like responses involves fostering Emergent Behavior, Subsymbolic Reasoning, and leveraging Latent Representations from models like Policy Gradients and Generative Models." },
              // Team category is defined but not used for concepts now
-             // "Team": { labels: [], infoPrefix: "Team:", sentencePrefix: "Defining the collaborative structure and goals." }
-         };
+             // "Team": { labels: [], infoPrefix: "Team:", sentencePrefix: "Defining the collaborative structure and goals." }
+         };
 
         // --- Input Data ---
         const teamMembersInput = [
@@ -640,13 +643,47 @@
             renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio); // Adjust for high DPI displays
+            // --- NEW: Enable Shadows ---
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Optional: Softer shadows
+
 
             // Lighting
-            const ambientLight = new THREE.AmbientLight(0xaaaaaa); // Soft ambient light
+            const ambientLight = new THREE.AmbientLight(0xaaaaaa, 0.6); // Reduced intensity slightly
             scene.add(ambientLight);
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8); // Brighter directional light
-            directionalLight.position.set(10, 15, 10);
-            scene.add(directionalLight);
+
+            // --- NEW: Distant Directional Light (Sun) ---
+            const sunLight = new THREE.DirectionalLight(0xffffff, 1.2); // White light, intensity
+            sunLight.position.set(-100, 150, 100); // Position determines direction (from this point towards origin)
+            sunLight.castShadow = true; // Enable shadow casting
+
+            // Configure shadow properties
+            sunLight.shadow.mapSize.width = 2048; // Shadow map resolution (higher = better quality, more expensive)
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 50; // Shadow camera frustum near plane
+            sunLight.shadow.camera.far = 400; // Shadow camera frustum far plane (adjust based on scene size)
+            // Define the area covered by the shadow camera (adjust based on scene size)
+            const shadowCamSize = 100;
+            sunLight.shadow.camera.left = -shadowCamSize;
+            sunLight.shadow.camera.right = shadowCamSize;
+            sunLight.shadow.camera.top = shadowCamSize;
+            sunLight.shadow.camera.bottom = -shadowCamSize;
+            sunLight.shadow.bias = -0.001; // Helps prevent shadow acne
+
+            scene.add(sunLight);
+            scene.add(sunLight.target); // Target defaults to (0,0,0), add it to scene if you move the light
+
+            // Optional: Visualize the shadow camera frustum for debugging
+            // const shadowHelper = new THREE.CameraHelper(sunLight.shadow.camera);
+            // scene.add(shadowHelper);
+            // Optional: Visualize light direction
+            // const lightHelper = new THREE.DirectionalLightHelper(sunLight, 5);
+            // scene.add(lightHelper);
+
+            // --- REMOVED old directional light ---
+            // const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            // directionalLight.position.set(10, 15, 10);
+            // scene.add(directionalLight);
 
             // Controls setup
             controls = new OrbitControls(camera, renderer.domElement);
@@ -681,9 +718,22 @@
                     case 'team': geometry = teamGeometry; initialColor = teamNodeColor; break;
                     case 'concept': default: geometry = conceptGeometry; initialColor = defaultSpaceColor; break;
                 }
-                const material = new THREE.MeshLambertMaterial({ color: initialColor });
+
+                // --- NEW: Create Translucent Material ---
+                const material = new THREE.MeshLambertMaterial({
+                    color: initialColor,
+                    transparent: true, // Enable transparency
+                    opacity: nodeOpacity, // Set base opacity
+                    depthWrite: false // Often needed for transparency sorting, might need adjustment
+                });
+
                 nodeMesh = new THREE.Mesh(geometry, material);
                 nodeMesh.position.copy(data.spawnPosition); // Use pre-calculated spawn position
+
+                // --- NEW: Enable Shadow Casting/Receiving ---
+                nodeMesh.castShadow = true;
+                nodeMesh.receiveShadow = true;
+
                 nodeMesh.userData = {
                     ...data, baseScale: 1.0, animOffset: Math.random() * Math.PI * 2,
                     originalColor: new THREE.Color(data.originalColorHex),
@@ -714,11 +764,11 @@
                          const lineMaterial = lineMaterialInactive.clone();
                          const line = new THREE.Line(geometry, lineMaterial);
                          line.userData = {
-                              startPoint: p1.clone(), // Store positions for activation check
-                              endPoint: p2.clone(),
-                              targetOpacity: lineDefaultOpacity,
-                              targetColor: new THREE.Color(lineDefaultColor)
-                          };
+                             startPoint: p1.clone(), // Store positions for activation check
+                             endPoint: p2.clone(),
+                             targetOpacity: lineDefaultOpacity,
+                             targetColor: new THREE.Color(lineDefaultColor)
+                         };
                          scene.add(line);
                          paperConnectionLines.push(line);
                     }
@@ -846,7 +896,7 @@
                         if(nodeBeingClicked === clickedNodeObject) window.open(nodeData.url, '_blank');
                         // Reset click state for non-concept nodes after URL open attempt
                          if (nodeData.type !== 'concept' && nodeBeingClicked === clickedNodeObject) {
-                              // Allow click effect to end naturally in animate loop
+                             // Allow click effect to end naturally in animate loop
                          }
                     }, 150);
                 } else if (nodeData.type === 'concept' && nodeData.sentence) {
@@ -860,7 +910,7 @@
                 } else {
                      // If it's a node without a URL or sentence
                      // Allow click effect to end naturally in animate loop
-                }
+                 }
             }
         }
 
@@ -1109,25 +1159,28 @@
 
                 // Apply hover scale (if not selected)
                 if (!isSelected && teamNode === intersectedObject) {
-                     teamTargetScale = 1.3;
+                      teamTargetScale = 1.3;
                  }
                  // Apply click pulse scale (if selected)
                  if (isSelected) {
-                     let clickScale = 1.0;
-                     if (now < clickEffectStartTime + clickEffectDuration) {
-                         const progress = (now - clickEffectStartTime) / clickEffectDuration;
-                         clickScale = 1.0 + Math.sin(progress * Math.PI) * 0.3; // Smaller pulse
-                     } else {
-                         // Reset click state ONLY if not a concept node (concept node reset is handled by overlay close)
-                         if (teamData.type !== 'concept') {
-                              nodeBeingClicked = null;
-                         }
-                     }
-                     teamTargetScale = clickScale; // Click scale overrides others
+                      let clickScale = 1.0;
+                      if (now < clickEffectStartTime + clickEffectDuration) {
+                          const progress = (now - clickEffectStartTime) / clickEffectDuration;
+                          clickScale = 1.0 + Math.sin(progress * Math.PI) * 0.3; // Smaller pulse
+                      } else {
+                          // Reset click state ONLY if not a concept node (concept node reset is handled by overlay close)
+                          if (teamData.type !== 'concept') {
+                               nodeBeingClicked = null;
+                          }
+                      }
+                      teamTargetScale = clickScale; // Click scale overrides others
                  }
 
                 teamNode.scale.lerp(new THREE.Vector3(teamTargetScale, teamTargetScale, teamTargetScale), 0.1);
+                // Set base color (team color) - transparency is handled by material opacity
                 teamNode.material.color.setHex(teamNodeColor);
+                // Ensure opacity is set correctly (might change if hover/click logic modifies it later)
+                teamNode.material.opacity = nodeOpacity;
             });
 
 
@@ -1167,9 +1220,9 @@
             teamNodes.forEach(teamNode => {
                  // Check proximity against papers and concepts
                  otherNodes.forEach(otherNode => {
-                      if (teamNode.position.distanceTo(otherNode.position) < proximityThreshold) {
+                     if (teamNode.position.distanceTo(otherNode.position) < proximityThreshold) {
                           activatedNodes.add(otherNode);
-                      }
+                     }
                  });
             });
 
@@ -1235,8 +1288,11 @@
                     // Team node highlighting is handled in their own loop
                 }
 
+                // Smoothly transition color and scale
                 node.material.color.lerp(finalTargetColor, colorLerpFactor);
                 node.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
+                // Ensure opacity is set correctly (might change if hover/click logic modifies it later)
+                node.material.opacity = nodeOpacity;
             });
 
             // Render the scene
